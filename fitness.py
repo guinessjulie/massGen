@@ -6,37 +6,36 @@ import math
 class Fitness:
 
     def __init__(self, grid, width, height, numCell):  # floor:[(x,y),...]
-        form_attributes = {}
-
+        attrs = {}
+        fits = {}
         self.grid= grid
-        self.numCell = numCell
-        self._width = width
-        self._height = height
-        # self.options = options # todo : move to ind function getIniConfig
         self.graph = grid.buildUndirectedGraph()
-        form_attributes['numCell'] = numCell
-        form_attributes['horizontal_length'] = width
-        form_attributes['vertical_length'] = height
+        attrs['numCell'] = numCell
+        attrs['grid_width'] = width
+        attrs['grid_height'] = height
+        self._attrs = attrs
+
         # Util.printAdjGraph(self.graph) #todo: for Debug
-        # self.SouthSideRatio = self.south_view_ratio() #todo 0318 to reprogram
-        # self.fulfill_distance()
-        self.pa_ratio = self.pa_ratio()
-        self.symmetry = self.get_symmetry()
-        edges, aspect_ratio, self.south_side = self.side_cells()
-        self.edges = edges
-        self.golden_ratio = (1+5**0.5) / 2
+        self.fulfill_distance()
+
+        fits['pa_ratio'] = self.pa_ratio()
+        fits['symmetry'] = self.get_symmetry()
+        self.edges, aspect_ratio, south_side = self.side_cells()
+        fits['aspect_ratio'] = aspect_ratio
+        fits['south_side'] = south_side
+        golden_ratio = (1+5**0.5) / 2
+        fits['agratio']  = aspect_ratio / golden_ratio
+        fits['solar_hour'] = self.get_daylight_hour()
+        self._fits = fits
+        # self.symmetry = self.get_symmetry()
         # self.fratio = min(aspect_ratio, self.golden_ratio) / max(aspect_ratio, self.golden_ratio)
-        self.agratio = aspect_ratio / self.golden_ratio  # todo remove self
-        print(f'aspect_ratio: {aspect_ratio}')
-        self.daylight_hour = self.get_daylight_hour()
-
-
     def __str__(self):
-        strFitness = f'PARatio = {self.pa_ratio} \n\
-                         F(golden) = {self.agratio}\n\
-                         Symmetry: {self.symmetry}\n\
-                         South View Ratio: {self.south_side}\n\
-                         Solar Hour: {self.daylight_hour}'
+
+        strFitness = f'PARatio = {self._fits["pa_ratio"]} \n\
+                         F(golden) = {self._fits["agratio"]}\n\
+                         Symmetry: {self._fits["symmetry"]}\n\
+                         South View Ratio: {self._fits["south_side"]}\n\
+                         Solar Hour: {self._fits["solar_hour"]}'
         return strFitness
 
     def config_options(self, key):  # todo: duplicate move options
@@ -53,15 +52,17 @@ class Fitness:
         wall_length = self.config_options('cell_length')
         boundary_walls =  self.boundary_length()
         perimeter = boundary_walls * wall_length
-        area =self.numCell* ( wall_length**2 )
-        print(f'numCell: {self.numCell} cell_length: {wall_length} boundary_walls:{boundary_walls} area: {area} perimeter: {perimeter}')
+        numCell = self._attrs['numCell']
+        area = numCell * ( wall_length**2 )
+        print(f'numCell: {numCell} cell_length: {wall_length} boundary_walls:{boundary_walls} area: {area} perimeter: {perimeter}')
         return 16*area / perimeter**2
 
     def south_gap(self):
         # for max
         cell_length = self.config_options('cell_length')
-        real_vertical_length = self._height * cell_length
-        print(f'grid vertical length: : {self._height}, cell_length: {cell_length}m, real vertical length: {real_vertical_length}m')
+        height = self._attrs['grid_height']
+        real_vertical_length = height * cell_length
+        print(f'grid vertical length: : {height}, cell_length: {cell_length}m, real vertical length: {real_vertical_length}m')
         max_south_index = max(pos.y for pos in self.edges['south'])
         adjacent_distance = self.config_options('adjacent_distance_south')
         south_distance   =  real_vertical_length - ((max_south_index+1) * cell_length)
@@ -138,7 +139,7 @@ class Fitness:
         insideWall = 0;
         for cell in self.graph:
             insideWall += len(self.graph[cell])
-        return self.numCell * 4 - insideWall
+        return self._attrs['numCell'] * 4 - insideWall
 
 
     def side_cells(self):
@@ -153,7 +154,7 @@ class Fitness:
         aspect_ratio = max(least, lnorth)/min(least,lnorth)
         sides = [edges[i] for i in edges]
         flat_sides = set([x for sub in sides for x in sub])
-        south_side_ratio =  len(edges['south'] ) / (len(flat_sides) * 1/2)
+        south_side_ratio =  len(edges['south'] ) / (len(flat_sides) )
         return edges, aspect_ratio, south_side_ratio
 
     # def aspect_ratio(self):
@@ -211,33 +212,35 @@ class Fitness:
     # def aspect_ratio(self):
     #     return (self.sideCells['totNorth']+self.sideCells['totNorth']) / (self.sideCells['totWest']+self.sideCells['totEast'])
 
-    def south_view_ratio(self):
-        # self.sideCells()
-        # totEast, totWest, totSouth, totNorth = self.length_side_cells() # todo: merged with sideCells dic
-        # aspectRatio = totSouth / totEast
-        # todo => direct access
-        totOpenEast = self.sideCells['totEast']
-        totOpenWest = self.sideCells['totWest']
-        totOpenSouth = self.sideCells['totSouth']
-        totOpenNorth = self.sideCells['totNorth']
-        print('totOpenEast', totOpenEast)
-        # 담장이 있을 경우를 고려한다. 예를 들어 south에 경계담장이 있을 경우, 남쪽이 경계면과 닿는 면은 남쪽면에서 제외한다.
-        # todo: option 처리를 어떻게 할 것인가를 고민한다.
-        # todo: self.options has list of walls
-        # todo: if all of them are there [south, east, west, north]
-        print('totSouth', totOpenSouth)
-        walls = self.config_options('wall_list')
-        print('walls:', walls) # todo: move to wherever needed the walls list
-        for cell in self.graph:
-            print('cell.y: ', cell.y, 'self.height:', self._height)
-            # totSouth -= 1 if cell.y >= self.height - 1 else 0
-            totOpenSouth -= 1 if 'south' in walls and cell.y >= self._height - 1 else 0
-            totOpenNorth -= 1 if 'north' in walls and cell.y <= 0 else 0
-            totOpenWest -= 1 if 'west' in walls and  cell.x <= 0 else 0
-            totOpenEast -= 1 if 'east' in walls and cell.x >= self._width - 1 else 0
-        print('Open Space: South, North, West, East:', totOpenSouth, totOpenNorth, totOpenWest, totOpenEast, self.golden_ratio())
-
-        return totOpenSouth / (totOpenEast + totOpenWest + totOpenNorth)
+    # def south_view_ratio(self):
+    #     # self.sideCells()
+    #     # totEast, totWest, totSouth, totNorth = self.length_side_cells() # todo: merged with sideCells dic
+    #     # aspectRatio = totSouth / totEast
+    #     # todo => direct access
+    #     totOpenEast = self.sideCells['totEast']
+    #     totOpenWest = self.sideCells['totWest']
+    #     totOpenSouth = self.sideCells['totSouth']
+    #     totOpenNorth = self.sideCells['totNorth']
+    #     print('totOpenEast', totOpenEast)
+    #     # 담장이 있을 경우를 고려한다. 예를 들어 south에 경계담장이 있을 경우, 남쪽이 경계면과 닿는 면은 남쪽면에서 제외한다.
+    #     # todo: option 처리를 어떻게 할 것인가를 고민한다.
+    #     # todo: self.options has list of walls
+    #     # todo: if all of them are there [south, east, west, north]
+    #     print('totSouth', totOpenSouth)
+    #     walls = self.config_options('wall_list')
+    #     print('walls:', walls) # todo: move to wherever needed the walls list
+    #     for cell in self.graph:
+    #         print('cell.y: ', cell.y, 'self.height:', self._attrs['grid_height'])
+    #         # totSouth -= 1 if cell.y >= self.height - 1 else 0
+    #         # totOpenSouth -= 1 if 'south' in walls and cell.y >= self._height - 1 else 0
+    #         totOpenSouth -= 1 if 'south' in walls and cell.y >= self.attrs['grid_height'] - 1 else 0
+    #         totOpenNorth -= 1 if 'north' in walls and cell.y <= 0 else 0
+    #         totOpenWest -= 1 if 'west' in walls and  cell.x <= 0 else 0
+    #         # totOpenEast -= 1 if 'east' in walls and cell.x >= self._width - 1 else 0
+    #         totOpenEast -= 1 if 'east' in walls and cell.x >= self.attrs['grid_width'] - 1 else 0
+    #     print('Open Space: South, North, West, East:', totOpenSouth, totOpenNorth, totOpenWest, totOpenEast, self.golden_ratio())
+    #
+    #     return totOpenSouth / (totOpenEast + totOpenWest + totOpenNorth)
 
     def fulfill_distance(self):
         # mass = self.options['Mass']
