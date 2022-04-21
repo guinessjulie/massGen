@@ -55,28 +55,3 @@ class Grid:
     def grouped_by_col(self):
         xset = set(map(lambda pos:pos.x, self.poses))
         return[ [pos for pos in self.poses if pos.x ==x ] for x in xset]
-
-    def buildUndirectedGraph(self):
-        adjGraph = {}
-        visited = set()
-        for idx, curCell in enumerate(self.poses):
-            visited.add(curCell)
-            adjs = Util.adjacent_four_way(curCell, self.width, self.height)
-            #         print('curCell', *curCell)
-            #         print('adjs', *adjs)
-            child = [adj for adj in adjs if adj in self.poses]
-            adjGraph[curCell] = child
-
-        return adjGraph
-
-    def connected_component(self):
-        visited = {}
-        cc = []
-        graph = self.buildUndirectedGraph()
-        for node in graph:
-            visited[node] = False
-        for nodeId, node in enumerate(graph):
-            if visited[node] == False:
-                temp = []  # dsf algorithm
-                cc.append(Util.dsf_util(visited, graph, node, temp))
-        return cc

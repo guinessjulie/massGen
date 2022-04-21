@@ -65,6 +65,25 @@ class Util:
                                and abs(x) != abs(y)
                               )]
 
+    @staticmethod
+    def move_topleft(positions):
+        miny = min(positions, key=lambda pos:pos.y).y
+        minx = min(positions, key=lambda pos: pos.x).x
+        return [Pos(pos.x-minx, pos.y-miny) for pos in positions]
+
+    @staticmethod
+    def bounding_box(positions):
+        # minx = min(positions, key=lambda pos:pos.x)
+        # maxx = max(positions, key= lambda pos: pos.x)
+        # miny = min(positions, key=lambda pos:pos.y)
+        # maxy = max(positions, key= lambda pos: pos.y)
+        # corners =  [Pos(minx.x, miny.y), Pos(maxx.x, miny.y), Pos(maxx.x, maxx.y), Pos(minx.x, maxy.y)]
+        return [min(positions, key=lambda pos:pos.x).x,
+                max(positions, key=lambda pos:pos.x).x,
+                min(positions, key=lambda pos:pos.y).y,
+                max(positions, key=lambda pos:pos.y).y,
+                ]
+        # return [min(corners, key=lambda pos:pos.x).x, max(corners, key=lambda pos:pos.x).x, min(corners)] #가로방향의 최소값을 가진 셀
 
     # 용적률에 해당하는 셀의 갯수를 구한다.
     @staticmethod

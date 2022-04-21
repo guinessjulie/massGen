@@ -2,39 +2,29 @@ from util import Util
 from grid import Grid
 
 from options import Options
-import math
 class Fitness:
-
     def __init__(self, grid, width, height, numCell):  # floor:[(x,y),...]
         self.grid= grid
+        self.floor = grid.poses
         self.numCell = numCell
         self.width = width
         self.height = height
         # self.options = options # todo : move to ind function getIniConfig
         self.graph = grid.buildUndirectedGraph()
 
-        # Util.printAdjGraph(self.graph) #todo: for Debug
+        Util.printAdjGraph(self.graph)
+
+        # self.sideCells = self.calc_side_cells()
+        self.Perimeter = self.boundary_length()
         # self.SouthSideRatio = self.south_view_ratio() #todo 0318 to reprogram
         self.fulfill_distance()
-        pa_ratio = self.pa_ratio()
-        print('pa_ratio: ', pa_ratio)
-        self.symmetry = self.get_symmetry()
-        edges, aspect_ratio = self.side_cells()
-        self.aspect_ratio = aspect_ratio
-        self.edges = edges
-        self.golden_ratio = (1+5**0.5) / 2
-        # self.fratio = min(aspect_ratio, self.golden_ratio) / max(aspect_ratio, self.golden_ratio)
-        self.fratio = self.aspect_ratio / self.golden_ratio  # todo remove self
-        self.daylight_hour = self.get_daylight_hour()
-        # self.normalized = aspect_ratio / (max(aspect_ratio, self.golden_ratio) - min(aspect_ratio, self.golden_ratio))
-        print('in __init__:')
-        self.fratio_normalized = self.fratio / self.golden_ratio
-#todo 그냥 아무데나 함수를 싸질러서 너덜너덜 하다. fit_ratio를 제대로 call하자 0413
+        print('call bound_box()')
+        self.symmetry()
+
     def __str__(self):
-        strFitness = f'Edges {self.edges}\n\
-                         Ratio : as = {self.aspect_ratio}, golden = {self.fratio}\n\
-                         Symmetry: {self.symmetry}'
-        return strFitness
+        edges, aspect_ratio = self.side_cells()
+        return 'Fitness: Perimeter:{0}, Edges:{1}, AspectRatio:{2}\n'.format(self.Perimeter, edges, aspect_ratio)
+        # return 'Fitness: Perimeter:{0}, AspectRatio:{1}\n'.format(self.Perimeter, self.aspect_ratio())
 
     def config_options(self, key):  # todo: duplicate move options
         config = Options()
@@ -46,79 +36,68 @@ class Fitness:
                 else:
                     return vals
 
-    def pa_ratio(self):
-        wall_length = self.config_options('cell_length')
-        boundary_walls =  self.boundary_length()
-        perimeter = boundary_walls * wall_length
-        area =self.numCell* ( wall_length**2 )
-        print(f'numCell: {self.numCell} cell_length: {wall_length} boundary_walls:{boundary_walls} area: {area} perimeter: {perimeter}')
-        return 16*area / perimeter**2
-
-    def get_daylight_hour(self):
-        h = self.config_options('height_diff_south')
-        d = self.config_options('adjacent_distance_south')
-        print('diff height:', h, 'distance: ', d)
-        altitudes = []
-        solar_data = {}
-        with open('solar_elevation_hourly.txt', 'r') as fp:
-            for line in fp:
-                altitude = [float(x) for x in line.split('\t') if x.strip()]
-                solar_data[int(altitude[0])] = altitude[1]
-                altitudes.append(altitude[1])
-        # solar_distances =  [float(h) / math.tan(math.radians(altitude)) for altitude in altitudes if altitude > 0]
-        solar_hour = sum(1 for altitude in altitudes
-                            if altitude > 0
-                               and float(h)/math.tan(math.radians(altitude)) < d)
-
-
-        # distance = self.config_options('adjacent_distance_south') + self.config_options('cell_size') *
-        return solar_hour
-
     # todo: not yet used. get polygon coordinates
     # todo: to get polygon coordinates for num_vertices and etc
     def get_polygon_vertice(self):
-        tupPos = [tuple((p.x, p.y)) for p in self.grid.poses]
+        tupPos = [tuple((p.x, p.y)) for p in self.floor]
         return Util.trace(tupPos)
 
     def bound_box(self):
-        newpos = Util.move_topleft((self.grid.poses))
-        #print(newpos) #todo:recover
-        print(Util.bounding_box(newpos)) # todo recover
+        newpos = Util.move_topleft((self.floor))
+        print(newpos)
+        print(Util.bounding_box(newpos))
 
-    def get_symmetry(self):
-        newpos = Util.move_topleft(self.grid.poses)
+    def symmetry(self):
+        newpos = Util.move_topleft(self.floor)
         bb = Util.bounding_box(newpos)
-        width = bb[1]+1; height = bb[3]+1
+        width = bb[1]+1
+        height = bb[3]+1
         newgrid = Grid(newpos, width, height)
+        print(newgrid)
+        horz_diff = 0
+        vertical_diff = 0
+        i = 0
+        k = height - 1
 
-        horz_diff = 0; vertical_diff = 0;
-        i = 0; k = height - 1
-
-        # Horizontal Symmetry
-        while(i < width // 2): #floor division operator
+        while(i < width // 2): #todo: redundant in middle rows, change to after testing i < math.floor(width/2)
             for j in range(width):
+                print(i, j, k, j)
+                print(newgrid.grid[i][j], newgrid.grid[k][j])
                 if(newgrid.grid[i][j] != newgrid.grid[k][j]):
                     horz_diff +=1
-            i += 1; k -= 1
+            i += 1
+            k -= 1
 
-        # Vertical Symmetry
-        i = 0; k = width - 1
-        while (i < height // 2):
+        print('vertical symmetry')
+        i = 0
+        k = height - 1
+        while (i < width // 2):
+
             # Checking each cell of a row.
             for j in range(height):
+                print(j, i,j, k)
+                print(newgrid.grid[j][i], newgrid.grid[j][k])
+                # check if every cell is identical
                 if (newgrid.grid[j][i] != newgrid.grid[j][k]):
                     vertical_diff += 1
-            k -= 1; i += 1
+            k -= 1
+            i += 1
+        vertical_symm = 1 - vertical_diff / len(self.floor)
+        horz_symm = 1 - horz_diff / len(self.floor)
 
-        vertical_symm = 1 - vertical_diff / len(self.grid.poses)
-        horz_symm = 1 - horz_diff / len(self.grid.poses)
+        print('Horizontal Symmetry:', horz_symm, 'vertical Symmetry:', vertical_symm)
+        # i=0
+        # k=M-1
+        # while(i<M //2):
+        #     for
 
-        return horz_symm, vertical_symm
+    def golden_ratio(self):
+        return self.aspect_ratio() #todo: implement
 
     def boundary_length(self):  # 외피 사이즈
         # This is the Fitness Function
         cc = self.grid.connected_component()
-        # Util.printCC(cc) # todo for DEBUG
+        Util.printCC(cc)
 
         insideWall = 0;
         for cell in self.graph:
@@ -134,22 +113,7 @@ class Fitness:
         edges['west'] = [min(row, key=lambda pos: pos.x) for row in rows]
         edges['south'] = [max(col, key=lambda pos: pos.y) for col in cols]
         edges['north'] = [min(col, key=lambda pos: pos.y) for col in cols]
-        least, lnorth = len(edges['east']), len(edges['north'])
-        aspect_ratio = max(least, lnorth)/min(least,lnorth)
-        print('aspect_ratio', aspect_ratio)
-        return edges, aspect_ratio
-
-    def aspect_ratio(self):
-        rows = self.grid.grouped_by_row()
-        cols = self.grid.grouped_by_col()
-        edges = {}
-        edges['east'] = [max(row, key=lambda pos: pos.x) for row in rows]
-        edges['west'] = [min(row, key=lambda pos: pos.x) for row in rows]
-        edges['south'] = [max(col, key=lambda pos: pos.y) for col in cols]
-        edges['north'] = [min(col, key=lambda pos: pos.y) for col in cols]
-        least, lnorth = len(edges['east']), len(edges['north'])
-        aspect_ratio = max(least, lnorth)/min(least,lnorth)
-        print('aspect_ratio', aspect_ratio)
+        aspect_ratio = len(edges['east'])/len(edges['north'])
         return edges, aspect_ratio
 
     # 각 동서남북 방향에 면한 사이드 셀 갯수
@@ -218,7 +182,7 @@ class Fitness:
             totOpenNorth -= 1 if 'north' in walls and cell.y <= 0 else 0
             totOpenWest -= 1 if 'west' in walls and  cell.x <= 0 else 0
             totOpenEast -= 1 if 'east' in walls and cell.x >= self.width - 1 else 0
-        print('Open Space: South, North, West, East:', totOpenSouth, totOpenNorth, totOpenWest, totOpenEast, self.golden_ratio())
+        print('Open Space: South, North, West, East:', totOpenSouth, totOpenNorth, totOpenWest, totOpenEast, self.aspect_ratio())
 
         return totOpenSouth / (totOpenEast + totOpenWest + totOpenNorth)
 
@@ -227,9 +191,8 @@ class Fitness:
         # fit = self.options['Fitness']
         adjacentLand = self.config_options('adjacent_land')
         roadSides = self.config_options('road_side')
-        adjDistance = self.config_options('adjacent_distance_south')
+        adjDistance = self.config_options('adjacent_distance')
         roadDistance = self.config_options('road_distance')
-        height_diff_south = self.config_options('height_diff_south')
         print('adjacentLand:',adjacentLand, 'adj distance', adjDistance, 'roadSides:', roadSides, 'roadDistance:', roadDistance)
 
     # def buildUndirectedGraph(self): #todo: moving to grid
