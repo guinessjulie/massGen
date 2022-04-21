@@ -6,34 +6,37 @@ import math
 class Fitness:
 
     def __init__(self, grid, width, height, numCell):  # floor:[(x,y),...]
+        form_attributes = {}
+
         self.grid= grid
         self.numCell = numCell
-        self.width = width
-        self.height = height
+        self._width = width
+        self._height = height
         # self.options = options # todo : move to ind function getIniConfig
         self.graph = grid.buildUndirectedGraph()
-
+        form_attributes['numCell'] = numCell
+        form_attributes['horizontal_length'] = width
+        form_attributes['vertical_length'] = height
         # Util.printAdjGraph(self.graph) #todo: for Debug
         # self.SouthSideRatio = self.south_view_ratio() #todo 0318 to reprogram
-        self.fulfill_distance()
-        pa_ratio = self.pa_ratio()
-        print('pa_ratio: ', pa_ratio)
+        # self.fulfill_distance()
+        self.pa_ratio = self.pa_ratio()
         self.symmetry = self.get_symmetry()
-        edges, aspect_ratio = self.side_cells()
-        self.aspect_ratio = aspect_ratio
+        edges, aspect_ratio, self.south_side = self.side_cells()
         self.edges = edges
         self.golden_ratio = (1+5**0.5) / 2
         # self.fratio = min(aspect_ratio, self.golden_ratio) / max(aspect_ratio, self.golden_ratio)
-        self.fratio = self.aspect_ratio / self.golden_ratio  # todo remove self
+        self.agratio = aspect_ratio / self.golden_ratio  # todo remove self
+        print(f'aspect_ratio: {aspect_ratio}')
         self.daylight_hour = self.get_daylight_hour()
-        # self.normalized = aspect_ratio / (max(aspect_ratio, self.golden_ratio) - min(aspect_ratio, self.golden_ratio))
-        print('in __init__:')
-        self.fratio_normalized = self.fratio / self.golden_ratio
-#todo 그냥 아무데나 함수를 싸질러서 너덜너덜 하다. fit_ratio를 제대로 call하자 0413
+
+
     def __str__(self):
-        strFitness = f'Edges {self.edges}\n\
-                         Ratio : as = {self.aspect_ratio}, golden = {self.fratio}\n\
-                         Symmetry: {self.symmetry}'
+        strFitness = f'PARatio = {self.pa_ratio} \n\
+                         F(golden) = {self.agratio}\n\
+                         Symmetry: {self.symmetry}\n\
+                         South View Ratio: {self.south_side}\n\
+                         Solar Hour: {self.daylight_hour}'
         return strFitness
 
     def config_options(self, key):  # todo: duplicate move options
@@ -54,10 +57,22 @@ class Fitness:
         print(f'numCell: {self.numCell} cell_length: {wall_length} boundary_walls:{boundary_walls} area: {area} perimeter: {perimeter}')
         return 16*area / perimeter**2
 
+    def south_gap(self):
+        # for max
+        cell_length = self.config_options('cell_length')
+        real_vertical_length = self._height * cell_length
+        print(f'grid vertical length: : {self._height}, cell_length: {cell_length}m, real vertical length: {real_vertical_length}m')
+        max_south_index = max(pos.y for pos in self.edges['south'])
+        adjacent_distance = self.config_options('adjacent_distance_south')
+        south_distance   =  real_vertical_length - ((max_south_index+1) * cell_length)
+        return south_distance
+
     def get_daylight_hour(self):
         h = self.config_options('height_diff_south')
         d = self.config_options('adjacent_distance_south')
-        print('diff height:', h, 'distance: ', d)
+        print(f'Real distance: {d}')
+        d = d + self.south_gap()
+        print(f'Elevation from south:{h}m, distance: {d}m')
         altitudes = []
         solar_data = {}
         with open('solar_elevation_hourly.txt', 'r') as fp:
@@ -136,63 +151,65 @@ class Fitness:
         edges['north'] = [min(col, key=lambda pos: pos.y) for col in cols]
         least, lnorth = len(edges['east']), len(edges['north'])
         aspect_ratio = max(least, lnorth)/min(least,lnorth)
-        print('aspect_ratio', aspect_ratio)
-        return edges, aspect_ratio
+        sides = [edges[i] for i in edges]
+        flat_sides = set([x for sub in sides for x in sub])
+        south_side_ratio =  len(edges['south'] ) / (len(flat_sides) * 1/2)
+        return edges, aspect_ratio, south_side_ratio
 
-    def aspect_ratio(self):
-        rows = self.grid.grouped_by_row()
-        cols = self.grid.grouped_by_col()
-        edges = {}
-        edges['east'] = [max(row, key=lambda pos: pos.x) for row in rows]
-        edges['west'] = [min(row, key=lambda pos: pos.x) for row in rows]
-        edges['south'] = [max(col, key=lambda pos: pos.y) for col in cols]
-        edges['north'] = [min(col, key=lambda pos: pos.y) for col in cols]
-        least, lnorth = len(edges['east']), len(edges['north'])
-        aspect_ratio = max(least, lnorth)/min(least,lnorth)
-        print('aspect_ratio', aspect_ratio)
-        return edges, aspect_ratio
+    # def aspect_ratio(self):
+    #     rows = self.grid.grouped_by_row()
+    #     cols = self.grid.grouped_by_col()
+    #     edges = {}
+    #     edges['east'] = [max(row, key=lambda pos: pos.x) for row in rows]
+    #     edges['west'] = [min(row, key=lambda pos: pos.x) for row in rows]
+    #     edges['south'] = [max(col, key=lambda pos: pos.y) for col in cols]
+    #     edges['north'] = [min(col, key=lambda pos: pos.y) for col in cols]
+    #     least, lnorth = len(edges['east']), len(edges['north'])
+    #     aspect_ratio = max(least, lnorth)/min(least,lnorth)
+    #     print('aspect_ratio', aspect_ratio)
+    #     return edges, aspect_ratio
 
     # 각 동서남북 방향에 면한 사이드 셀 갯수
-    def calc_side_cells(self):
-        southSides = []
-        northSides = []
-        eastSides = []
-        westSides = []
-        # todo: 이렇게 하면 안된다. 이건 모든 셀애 대해 각 방향별로 그루핑해서 동서남북별로 추가할 뿐이다.
-        #  맨 끝 셀을 알려면 max 값을 구해야 한다.
-        for cell in self.graph:
-            adj = self.graph[cell]
-            southSides.extend([south for south in adj if cell.y < south.y]) # adj 셀이 현재 셀 보다 밑에 있는 거 추가
-            northSides.extend([north for north in adj if cell.y > north.y])
-            westSides.extend([west for west in adj if cell.x > west.x])
-            eastSides.extend([east for east in adj if cell.x < east.x])
-
-        sz = len(self.graph)  # total number of cells size
-        totSouth = sz - len(southSides)
-        totEast = sz - len(eastSides)
-        totWest = sz - len(westSides)
-        totNorth = sz - len(northSides)
-        return{
-            'southSides':southSides,
-            'northSides':northSides,
-            'eastSides':eastSides,
-            'westSides':westSides,
-            'totSouth' : totSouth,
-            'totEast' : totEast,
-            'totWest' : totWest,
-            'totNorth' : totNorth
-        }
-        # return [southSides, northSides, eastSides, westSides]
-    def updateSideLength(self, sides):
-        self.sideCells['totSouth'] = sides.get('south')
-        self.sideCells['totNorth'] = sides.get('north')
-        self.sideCells['totWest'] = sides.get('west')
-        self.sideCells['totEast'] = sides.get('east')
+    # def calc_side_cells(self):
+    #     southSides = []
+    #     northSides = []
+    #     eastSides = []
+    #     westSides = []
+    #     # todo: 이렇게 하면 안된다. 이건 모든 셀애 대해 각 방향별로 그루핑해서 동서남북별로 추가할 뿐이다.
+    #     #  맨 끝 셀을 알려면 max 값을 구해야 한다.
+    #     for cell in self.graph:
+    #         adj = self.graph[cell]
+    #         southSides.extend([south for south in adj if cell.y < south.y]) # adj 셀이 현재 셀 보다 밑에 있는 거 추가
+    #         northSides.extend([north for north in adj if cell.y > north.y])
+    #         westSides.extend([west for west in adj if cell.x > west.x])
+    #         eastSides.extend([east for east in adj if cell.x < east.x])
+    #
+    #     sz = len(self.graph)  # total number of cells size
+    #     totSouth = sz - len(southSides)
+    #     totEast = sz - len(eastSides)
+    #     totWest = sz - len(westSides)
+    #     totNorth = sz - len(northSides)
+    #     return{
+    #         'southSides':southSides,
+    #         'northSides':northSides,
+    #         'eastSides':eastSides,
+    #         'westSides':westSides,
+    #         'totSouth' : totSouth,
+    #         'totEast' : totEast,
+    #         'totWest' : totWest,
+    #         'totNorth' : totNorth
+    #     }
+    #     # return [southSides, northSides, eastSides, westSides]
+    # def updateSideLength(self, sides):
+    #     self.sideCells['totSouth'] = sides.get('south')
+    #     self.sideCells['totNorth'] = sides.get('north')
+    #     self.sideCells['totWest'] = sides.get('west')
+    #     self.sideCells['totEast'] = sides.get('east')
 
 
     # 모든 이웃을 다 조사해서 south 이웃이 없으면 현재 셀이 south이므로 south 하나 증가
-    def aspect_ratio(self):
-        return (self.sideCells['totNorth']+self.sideCells['totNorth']) / (self.sideCells['totWest']+self.sideCells['totEast'])
+    # def aspect_ratio(self):
+    #     return (self.sideCells['totNorth']+self.sideCells['totNorth']) / (self.sideCells['totWest']+self.sideCells['totEast'])
 
     def south_view_ratio(self):
         # self.sideCells()
@@ -212,12 +229,12 @@ class Fitness:
         walls = self.config_options('wall_list')
         print('walls:', walls) # todo: move to wherever needed the walls list
         for cell in self.graph:
-            print('cell.y: ', cell.y, 'self.height:', self.height)
+            print('cell.y: ', cell.y, 'self.height:', self._height)
             # totSouth -= 1 if cell.y >= self.height - 1 else 0
-            totOpenSouth -= 1 if 'south' in walls and cell.y >= self.height -1 else 0
+            totOpenSouth -= 1 if 'south' in walls and cell.y >= self._height - 1 else 0
             totOpenNorth -= 1 if 'north' in walls and cell.y <= 0 else 0
             totOpenWest -= 1 if 'west' in walls and  cell.x <= 0 else 0
-            totOpenEast -= 1 if 'east' in walls and cell.x >= self.width - 1 else 0
+            totOpenEast -= 1 if 'east' in walls and cell.x >= self._width - 1 else 0
         print('Open Space: South, North, West, East:', totOpenSouth, totOpenNorth, totOpenWest, totOpenEast, self.golden_ratio())
 
         return totOpenSouth / (totOpenEast + totOpenWest + totOpenNorth)

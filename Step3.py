@@ -21,7 +21,7 @@ class GenArchiPlan(unittest.TestCase):
     width = config.config_options('width')
     height = config.config_options('height')
     floorAreaRatio = config.config_options('faratio')
-    print(width, height, floorAreaRatio)
+    # print(width, height, floorAreaRatio)
     num_cells = Util.get_num_cells(width, height, floorAreaRatio)
 
     #@repeat(10)
@@ -34,6 +34,8 @@ class GenArchiPlan(unittest.TestCase):
         config = Options() # todo:  get rid of all config instance related functions and objects
         width = config.config_options('width')
         height = config.config_options('height')
+        width = random.randint(5, 15)
+        height=random.randint(4, 10)
         floorAreaRatio = config.config_options('faratio')
         print(width, height, floorAreaRatio)
         # fitOpt, massOpt, paramOpt, optOpt = config.get_options()
@@ -43,16 +45,12 @@ class GenArchiPlan(unittest.TestCase):
         # width, height, floorAreaRatio = massOpt['width'], massOpt['height'], massOpt['faratio']
 
         num_cells = Util.get_num_cells(width, height, floorAreaRatio)
+
         grid =  self.generate(width, height, num_cells) # pos = fitness.floor = genes
-        pos = grid.poses
-        # grid.update_positions(genes)
-        # print('grid\n',grid)
         # todo: finish local functions of grid.py moving from fitness all thest
-        # print(Grid(genes, width, height), '\n') # todo : display test
-        # print('grouped by row:' , grid.grouped_by_row()) #todo moved to fitness
-        adjGraph = grid.buildUndirectedGraph()
+        # adjGraph = grid.buildUndirectedGraph()
         # print(adjGraph)
-        print(grid)
+        # print(grid)
         self.get_fitness(grid, width, height, num_cells) # todo: revert no, no no no no fitness has already options so do not botgher the option here
 
         # self.generate_multi(width, height, num_cells)
