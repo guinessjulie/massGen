@@ -1,6 +1,7 @@
 import configparser
 import re
 import math
+from collections.abc import Iterable
 
 def loadIniFile(inifile):
     options = configparser.ConfigParser()
@@ -35,6 +36,31 @@ class Util:
             print('connected compoonent:', *c)
             for adj in c:
                 print('adj:', adj)
+
+    def display_str_dict(attrs, title='', postfix=None, format=':.2f'):
+        postfix= [''for _ in range(len(attrs))] if postfix == None else postfix
+        new_line ='\n'
+        str_result = f'{new_line}[{title}]{new_line}'
+        i = 0
+        for ky in attrs:
+            if type(attrs[ky]) == float:
+                str_result += f'{ky}: {attrs[ky]:.4f}{postfix[i]}{new_line}'
+            elif isinstance(attrs[ky], Iterable):
+                all_float = True
+                for elm in attrs[ky]:
+                    all_float &= type(elm) == float
+                if all_float:
+                    str_result += f'{ky}: ('
+                    for elem in attrs[ky]:
+                        str_result += f'{elem:.4f}{postfix[i]}, '
+                    str_result = str_result[:-2]
+                    str_result += f'){new_line}'
+                else:
+                    str_result += f'{ky}: {elm}{postfix[i]}{new_line}'
+            else:
+                str_result += f'{ky}: {attrs[ky]}{postfix[i]}{new_line}'
+            i += 1
+        print(str_result)
 
     @staticmethod
     def dsf_util(visited, graph, node, components):

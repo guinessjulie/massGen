@@ -29,7 +29,7 @@ class Fitness:
     def config_options(self, key):  # todo: duplicate move options
         config = Options()
         for section in config.get_sections():
-            if config.options[section].get(key):
+            if config._options[section].get(key):
                 vals = config.get_value(section, key).split(',')
                 if section == 'Mass' or section == 'GAParams':  # only allow float or integer value in these section
                     return Util.tonumber(vals[0])

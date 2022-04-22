@@ -8,19 +8,19 @@ class Options:
         if not os.path.isfile(self.filename):
             self.create_default_option() # if file is not exists
             print('file not exists. so created')
-        self.options = configparser.ConfigParser()
+        self._options = configparser.ConfigParser()
         # self.create_default_option()
 
     def create_default_option(self):
 
-        self.options['Fitness'] = { # todo: why Fitness? maybe Land Boundary
+        self._options['Fitness'] = { # todo: why Fitness? maybe Land Boundary
             'wall_list':'south, east, west, north',
             'road_side': 'south',
             'adjacent_land': 'east, west'
         }
 
         # only numbers are valid
-        self.options['Mass'] = {
+        self._options['Mass'] = {
             'width': '5',
             'height': '6',
             'faRatio': '0.3',
@@ -32,7 +32,7 @@ class Options:
             'front_height': '6.8' #
         }
 
-        self.options['GAParams']={
+        self._options['GAParams']={
             'expandSize':'1',
             'numCross':'1',
             'mutationRate': '0.1',
@@ -42,32 +42,32 @@ class Options:
             'DNALength':'0',
         }
 
-        self.options['Optional'] = { # todo: all the boolean options not used yet
+        self._options['Optional'] = { # todo: all the boolean options not used yet
             'forceDNALength': 'no',
             'selection': 'roulette',
         }
 
         with open(self.filename, 'w') as optionFile:
-            self.options.write(optionFile)
+            self._options.write(optionFile)
 
     def read_option_file(self):
-        self.options.read(self.filename)
+        self._options.read(self.filename)
 
     def get_sections(self):
-        self.options.read(self.filename)
-        return self.options.sections()
+        self._options.read(self.filename)
+        return self._options.sections()
 
     def get_value(self, section, key):
-        return self.options[section].get(key)
+        return self._options[section].get(key)
 
     def get_int_value(self, section, key):
-        return int(self.options[section].get(key))
+        return int(self._options[section].get(key))
 
     def get_float_value(self, section, key):
-        return float(self.options[section].get(key))
+        return float(self._options[section].get(key))
 
     def fitness_options(self):
-        fitness = self.options['Fitness']
+        fitness = self._options['Fitness']
         fitOptions = {}
 
         for key in fitness:
@@ -75,7 +75,7 @@ class Options:
         return fitOptions
 
     def mass_options(self):
-        mass = self.options['Mass']
+        mass = self._options['Mass']
         massOptions = {}
         for key in mass:
             if mass[key].isdigit():
@@ -89,14 +89,14 @@ class Options:
         return self.mass_options(key)
 
     def param_options(self):
-        param = self.options['GAParams']
+        param = self._options['GAParams']
         paramOptions = {}
         for key in param:
             paramOptions[key] = int(param[key]) if param[key].isdigit() else float(param[key])
         return paramOptions
 
     def optional_options(self):
-        optional = self.options['Optional']
+        optional = self._options['Optional']
         optionalOptions = {}
         for key in optional:
             optionalOptions[key] = optional.get(key)
@@ -116,9 +116,33 @@ class Options:
     def config_options(self, key):
         # config = Options()
         for section in self.get_sections():
-            if self.options[section].get(key):
+            if self._options[section].get(key):
                 vals = self.get_value(section, key).split(',')
                 if section == 'Mass' or section == 'GAParams':  # only allow float or integer value in these section
                     return Util.tonumber(vals[0])
                 else:
                     return vals
+
+    def display_settings(self, width, height):
+        config = lambda x:self.config_options(x)
+        tostr = lambda title, x: f'{title}: {x}'
+        cell_length = self.config_options('cell_length') # length of each side of the cell
+        n_col, n_row = cell_length * width, cell_length * height
+
+        settings = ['[Site Configuration]']
+        settings += [f'Land Size: {n_col}m x {n_row}m']
+        settings += [f'Real Cell Size: {cell_length}m x {cell_length}m']
+        settings += [f'Legal Floor Area Ratio: {config("faratio")*100:.0f}%']
+        settings += [f'Optimal Ratio: {config("optimal_ratio")[0]}']
+        settings += [tostr('Building Elevation',  config('height_diff_south'))+'m']
+        settings += [tostr('South Gap', config('south_gap'))+'m']
+        settings += [tostr('North Gap', config('north_gap'))+'m']
+        settings += [tostr('East Gap', config('east_gap'))+'m']
+        settings += [tostr('West Gap', config('west_gap'))+'m']
+        settings += [tostr('Road Side', config('road_side'))]
+        settings += [tostr('Walls installed', config('wall_list'))]
+        settings += [tostr('Wall Elevation', config('wall_height'))+'m']
+
+        new_line = '\n'
+        print(f'{new_line}{new_line.join(settings)}')
+

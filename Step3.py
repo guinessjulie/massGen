@@ -18,40 +18,26 @@ def repeat(times):
 
 class GenArchiPlan(unittest.TestCase):
     config = Options()  # todo:  get rid of all config instance related functions and objects
-    width = config.config_options('width')
-    height = config.config_options('height')
-    floorAreaRatio = config.config_options('faratio')
-    # print(width, height, floorAreaRatio)
-    num_cells = Util.get_num_cells(width, height, floorAreaRatio)
 
-    #@repeat(10)
-    def test_generate(self):
-        grid = self.generate(self.width, self.height, self.num_cells)
-        tupPos = [tuple((p.x, p.y)) for p in grid.poses]
-        # print('positions: ', tupPos)
     @repeat(10)
     def test1(self):
-        config = Options() # todo:  get rid of all config instance related functions and objects
-        width = config.config_options('width')
-        height = config.config_options('height')
         width = random.randint(5, 15)
-        height=random.randint(4, 10)
-        floorAreaRatio = config.config_options('faratio')
-        print(width, height, floorAreaRatio)
-        # fitOpt, massOpt, paramOpt, optOpt = config.get_options()
+        height = random.randint(4, 10)
+        self.config.display_settings(width, height)
+        num_cells = Util.get_num_cells(width, height, self.config.config_options('faratio'))
+        grid = self.generate(width, height, num_cells) # pos = fitness.floor = genes
+        self.get_fitness(grid, width, height, num_cells) # todo: revert no, no no no no fitness has already options so do not botgher the option here
 
+        # fitOpt, massOpt, paramOpt, optOpt = config.get_options()
         # self.fitOptions = walls # todo proper option control with classes
         # print(walls)
         # width, height, floorAreaRatio = massOpt['width'], massOpt['height'], massOpt['faratio']
 
-        num_cells = Util.get_num_cells(width, height, floorAreaRatio)
 
-        grid =  self.generate(width, height, num_cells) # pos = fitness.floor = genes
         # todo: finish local functions of grid.py moving from fitness all thest
         # adjGraph = grid.buildUndirectedGraph()
         # print(adjGraph)
         # print(grid)
-        self.get_fitness(grid, width, height, num_cells) # todo: revert no, no no no no fitness has already options so do not botgher the option here
 
         # self.generate_multi(width, height, num_cells)
     def test2(self):
@@ -61,7 +47,7 @@ class GenArchiPlan(unittest.TestCase):
         print(outline)
     def get_fitness(self, grid, width, height, num_cells):
         fitness = Fitness(grid, width, height, num_cells)
-        print(fitness)
+        # print(fitness)
         # perimeter = fitness.boundary_length()
         # southSide = fitness.south_view_ratio()
         #
@@ -96,8 +82,8 @@ class GenArchiPlan(unittest.TestCase):
         grid.update_positions(genes)
         # print('grid\n',grid)
         # # todo: finish local functions of grid.py moving from fitness all thest
-        print('final shape')
-        print(Grid(genes, width, height), '\n') # todo : Debug display test
+        print('\nCreated Shape')
+        print(Grid(genes, width, height), '\n') #  Final Shape
         # print('grouped by row:' , grid.grouped_by_row())
         # print('grouped by col:' , grid.grouped_by_col())
         # adjGraph = grid.buildUndirectedGraph()
@@ -105,6 +91,15 @@ class GenArchiPlan(unittest.TestCase):
 
         return grid
 
+    #@repeat(10)
+    def test_generate(self):
+        width = self.config.config_options('width')
+        height = self.config.config_options('height')
+        floorAreaRatio = self.config.config_options('faratio')
+        num_cells = Util.get_num_cells(width, height, floorAreaRatio)
+
+        grid = self.generate(width, height, num_cells)
+        tupPos = [tuple((p.x, p.y)) for p in grid.poses]
 
     def generate2(self, width, height, num_cells): # printing debug working backup version 2022-03-16
         genes = [Pos(int(width/2), math.floor(height/2))] #todo: genes to genes
