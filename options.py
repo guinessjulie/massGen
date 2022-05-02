@@ -133,7 +133,7 @@ class Options:
         settings += [f'Land Size: {n_col}m x {n_row}m']
         settings += [f'Real Cell Size: {cell_length}m x {cell_length}m']
         settings += [f'Legal Floor Area Ratio: {config("required_faratio")*100:.0f}%']
-        settings += [f'Optimal Ratio: {config("optimal_ratio")[0]}']
+        settings += [f'Optimal Aspect Ratio: {config("optimal_aspect_ratio")[0]}']
         settings += [tostr('South Building Elevation Diff',  config('height_diff_south'))+'m']
         settings += [tostr('South Distance', config('south_gap'))+'m']
         # settings += [tostr('North Gap', config('north_gap'))+'m']

@@ -22,7 +22,7 @@ def repeat(times):
 class GenArchiPlan(unittest.TestCase):
     config = Options()  # todo:  get rid of all config instance related functions and objects
 
-    @repeat(10)
+    @repeat(2)
     def test1(self):
         # width = random.randint(3, 5)
         # height = random.randint(3, 5)
@@ -32,7 +32,8 @@ class GenArchiPlan(unittest.TestCase):
         str_settings = self.config.get_display_settings(width, height)
         print(str_settings)
         num_cells = Util.get_num_cells(width, height, self.config.config_options('required_faratio'))
-        pops = self.create_population(width, height, num_cells, pop_size)
+        pops = self.create_population(width, height, num_cells, pop_size, str_settings)
+        print('population size created',len(pops))
         grid = self.generate(width, height, num_cells) # pos = fitness.floor = genes
         grid2 = self.generate(width, height, num_cells)
         childGenes = self.crossover(grid.poses, grid2.poses)
@@ -108,14 +109,22 @@ class GenArchiPlan(unittest.TestCase):
 
         return grid
 
-    def create_population(self, width, height, num_cells, population_size):
-        pops = []
-        for i in range(population_size):
-            pops.append(self.generate(width, height, num_cells))
+    def create_population(self, width, height, num_cells, population_size, str_settings):
+        pops = {}
+        while len(pops) <= population_size:
+        # for i in range(population_size):
+            genes = self.generate(width, height, num_cells)
+            fitness = Fitness(genes, width, height, num_cells)
+            attr, fits, edges = fitness.build_attrs(genes,num_cells)
+
+            if fits['fulfill building line'] == 'Succeeded':
+                indv['genes'] = genes
+                pops.append(genes)
+                Util.plotColorMesh(genes, fitness, str_settings)
         return pops
 
-    def create_mating_pool(self, population, fnFitness):
-        pass
+    def create_mating_pool(self, population, fitness_name):
+
 
     def crossover(self, genes1, genes2):
         pt = random.randint(0, len(genes1) - 2)

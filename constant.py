@@ -5,5 +5,5 @@ SQRT2 = math.sqrt(2)
 SQRT3 = math.sqrt(3)
 SQRT5 = math.sqrt(5)
 ONE2ONE = float(1)
-
+SOLAR_ELEVATION_ANGLE = 'solar_elevation_15.txt'
 RATIOS = {'golden_ratio': GOLDEN_RATIO, 'sqrt2': SQRT2, 'sqrt3':SQRT3, 'sqrt5':SQRT5, 'one2one':ONE2ONE}

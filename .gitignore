@@ -5,3 +5,4 @@ results/
 .Step1.py
 .Step2.py
 *.png
+./results/*.png

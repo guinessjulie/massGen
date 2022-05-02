@@ -121,8 +121,9 @@ class Util:
             y = land.height -1 - cell.y # to reverse y value to transform screen coordinate to plot coordinate
             mat[y][cell.x] = 1
         fig = plt.figure(constrained_layout = True)
-        gs = fig.add_gridspec(3,2)
-        ax1 = fig.add_subplot(gs[:2,0])
+        gs = fig.add_gridspec(6,3)
+        gs.update(left=0.1, right=0.3, top=0.965, bottom=0.03, wspace=0.3, hspace=0.09)
+        ax1 = fig.add_subplot(gs[:5,:2])
 
         # ax1.pcolormesh(mat,  cmap='gray_r', alpha=0.7, edgecolor='silver', linewidth = 0.01)
         ax1.pcolormesh(mat,  cmap='gray_r', alpha=0.7, edgecolor='silver', linewidth = 0)
@@ -130,9 +131,11 @@ class Util:
         ax1.set_yticks([])
         ax1.set_aspect(1.0)
 
-        Util.set_gridplot_text(fig, gs[:2,1], txt_setting)
-        Util.set_gridplot_text(fig,gs[2,0], txt_plan)
-        Util.set_gridplot_text(fig, gs[2,1],txt_fitness)
+        Util.set_gridplot_text(fig, gs[:5,2:], txt_setting) #todo reorganizing and test
+        # Util.set_gridplot_text(fig,gs[2,0], txt_plan)
+        # Util.set_gridplot_text(fig, gs[2,2],txt_fitness)
+        Util.set_gridplot_text(fig,gs[5,:2], txt_plan)
+        Util.set_gridplot_text(fig, gs[5,2:],txt_fitness)
 
         filename = './results/plot_'+ datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")[4:]
         plt.savefig(filename)

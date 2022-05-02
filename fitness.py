@@ -37,11 +37,12 @@ class Fitness:
         fits['symmetry'] = self.get_symmetry()
         edges, aspect_ratio, south_side = self.side_cells()
         fits['south_side'] = south_side
-        optimal_ratio = self.config_options('optimal_ratio')[0] # because it returns list
-        optimal_ratio_value = constant.RATIOS[optimal_ratio]
+        optimal_aspect_ratio = self.config_options('optimal_aspect_ratio')[0] # because it returns list
+        optimal_aspect_ratio_value = constant.RATIOS[optimal_aspect_ratio]
         fits['aspect_ratio'] = aspect_ratio
-        fits['optimal_ratio'] = aspect_ratio / optimal_ratio_value
-        fits['daylight hour'] = self.get_daylight_hour(edges, real_vertical_length) # todo edges not set yet
+        fits['Fitness Aspect Ratio'] = aspect_ratio / optimal_aspect_ratio_value
+        # fits['daylight hour'] = self.get_daylight_hour(edges, real_vertical_length) # todo edges not set yet
+        fits['sunlight hours'], fits['Fitness Sunlight'] = self.get_daylight_15min(edges) # todo test and finish to get detailed 15min sunlight
         buildingends, lotends, fits['fulfill building line'] = self.fulfill_building_line(grid_by_row, grid_by_col)
         fits['setbacks'] = 'Failed' if fits['fulfill building line'] == 'Failed' else self.check_setbakcs(buildingends, lotends, grid_by_row, grid_by_col)
         return attrs, fits, edges
@@ -50,6 +51,7 @@ class Fitness:
 # 따로 떼자 너무 복잡
     def fulfill_building_line(self, rows, cols):
         road_side= self.config_options('road_side')[0] #todo f
+        print('road side')
         road_width = self.config_options('road_width')
         cell_length = self.config_options('cell_length')
         setback_requirement = self.config_options('setback_requirement')
@@ -128,10 +130,10 @@ class Fitness:
         config = lambda key : self.config_options(key)
         strFitness = f'Fitness: \n\
          1. Area to length of outer wall = {fits["pa_ratio"]:.4f} \n\
-         2. Optimal Ratio({config("optimal_ratio")[0]}) = {fits["optimal_ratio"]:.4f} (Aspect ratio: {fits.get("aspect_ratio")})\n\
+         2. Optimal Ratio({config("optimal_aspect_ratio")[0]}) = {fits["optimal_ratio"]:.4f} (Aspect ratio: {fits.get("aspect_ratio")})\n\
          3. Symmetry: (Vertical: {fits["symmetry"][0]:.2f}, Horizontal:{fits["symmetry"][1]:.2f})\n\
          4. South View Ratio: {fits["south_side"]:.4f}\n\
-         5. Solar Hour: {fits["daylight hour"]}hours'
+         5. Solar Hour: {fits["sunlight hour"]}hours'
         return strFitness
 
     def verify_setback_requirement(self):
@@ -148,13 +150,10 @@ class Fitness:
         return boundary_walls, floorarea, perimeter, 16*floorarea / perimeter**2, floorarea/landarea
 
     #남향 방향으로 얼마나 빈 공간이 있느냐 하는 것
-    def south_gap(self, edges, real_vertical_length):
-        # for max
+    def south_gap(self, edges):
         cell_length = self.config_options('cell_length')
-        # real_vertical_length = self._attrs['real max height'] # todo fixing bugs 04-26
-        max_south_index = max(pos.y for pos in edges['south'])
-        distance_south = (self._grid.height * cell_length) - ((max_south_index + 1) * cell_length) #남쪽 공간
-        return distance_south
+        front_space_south =sum([self._grid.height-1-cell.y for cell in edges['south']]) * cell_length
+        return front_space_south
 
     def get_daylight_hour(self, edges, real_vertical_length):
         h = self.config_options('height_diff_south')
@@ -171,7 +170,23 @@ class Fitness:
                             if altitude > 0
                             and float(h)/math.tan(math.radians(altitude)) < d)
         return solar_hour
+    def get_daylight_15min(self, edges):
+        h = self.config_options('height_diff_south')
+        occluded_distance_to_south= self.config_options('adjacent_distance_south')
+        avg_d = self.south_gap(edges) + occluded_distance_to_south
+        altitudes = []
+        solar_data = {}
+        with open(constant.SOLAR_ELEVATION_ANGLE, 'r') as fp:
+            for line in fp:
+                altitude = [float(x) for x in line.split('\t') if x.strip()]
+                solar_data[int(altitude[0])] = altitude[1]
+                altitudes.append(altitude[1])
+        solar_15min = sum(0.25 for altitude in altitudes
+                            if altitude > 0
+                            and float(h)/math.tan(math.radians(altitude)) < avg_d)
+        fitness_sunlight  = solar_15min / sum(1/4 for altitude in altitudes if altitude > 0)
 
+        return solar_15min, fitness_sunlight
     # todo: not yet used. get polygon coordinates
     # todo: to get polygon coordinates for num_vertices and etc
     def get_polygon_vertice(self):
