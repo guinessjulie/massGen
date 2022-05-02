@@ -1,3 +1,7 @@
 # file: ~/.gitignore_global
 .DS_Store
 .idea
+results/
+.Step1.py
+.Step2.py
+*.png

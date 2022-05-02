@@ -14,7 +14,7 @@ class Options:
     def create_default_option(self):
 
         self._options['Fitness'] = { # todo: why Fitness? maybe Land Boundary
-            'wall_list':'south, east, west, north',
+            'wall_list':'south,north',
             'road_side': 'south',
             'adjacent_land': 'east, west'
         }
@@ -123,26 +123,28 @@ class Options:
                 else:
                     return vals
 
-    def display_settings(self, width, height):
+    def get_display_settings(self, width, height):
         config = lambda x:self.config_options(x)
         tostr = lambda title, x: f'{title}: {x}'
         cell_length = self.config_options('cell_length') # length of each side of the cell
         n_col, n_row = cell_length * width, cell_length * height
 
-        settings = ['[Site Configuration]']
+        settings = ['[Site Configuration]\n\n']
         settings += [f'Land Size: {n_col}m x {n_row}m']
         settings += [f'Real Cell Size: {cell_length}m x {cell_length}m']
-        settings += [f'Legal Floor Area Ratio: {config("faratio")*100:.0f}%']
+        settings += [f'Legal Floor Area Ratio: {config("required_faratio")*100:.0f}%']
         settings += [f'Optimal Ratio: {config("optimal_ratio")[0]}']
-        settings += [tostr('Building Elevation',  config('height_diff_south'))+'m']
-        settings += [tostr('South Gap', config('south_gap'))+'m']
-        settings += [tostr('North Gap', config('north_gap'))+'m']
-        settings += [tostr('East Gap', config('east_gap'))+'m']
-        settings += [tostr('West Gap', config('west_gap'))+'m']
+        settings += [tostr('South Building Elevation Diff',  config('height_diff_south'))+'m']
+        settings += [tostr('South Distance', config('south_gap'))+'m']
+        # settings += [tostr('North Gap', config('north_gap'))+'m']
+        # settings += [tostr('East Gap', config('east_gap'))+'m']
+        # settings += [tostr('West Gap', config('west_gap'))+'m']
         settings += [tostr('Road Side', config('road_side'))]
+        settings += [tostr('Road Width', config('road_width'))+'m']
+        settings += [tostr('Setback Distance', config('setback_requirement'))+'m']
         settings += [tostr('Walls installed', config('wall_list'))]
         settings += [tostr('Wall Elevation', config('wall_height'))+'m']
 
         new_line = '\n'
-        print(f'{new_line}{new_line.join(settings)}')
+        return f'{new_line}{new_line.join(settings)}'
 

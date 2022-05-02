@@ -22,7 +22,7 @@ class GenArchiPlan(unittest.TestCase):
     config = Options()  # todo:  get rid of all config instance related functions and objects
     width = config.config_options('width')
     height = config.config_options('height')
-    floorAreaRatio = config.config_options('faratio')
+    floorAreaRatio = config.config_options('required_faratio')
     print(width, height, floorAreaRatio)
     num_cells = Util.get_num_cells(width, height, floorAreaRatio)
 

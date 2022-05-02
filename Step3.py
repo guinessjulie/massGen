@@ -8,6 +8,8 @@ from grid import Grid
 from options import Options
 import math
 
+import matplotlib.pyplot as plt
+
 def repeat(times):
     def repeatHelper(f):
         def callHelper(*args):
@@ -16,18 +18,31 @@ def repeat(times):
         return callHelper
     return repeatHelper
 
+
 class GenArchiPlan(unittest.TestCase):
     config = Options()  # todo:  get rid of all config instance related functions and objects
 
     @repeat(10)
     def test1(self):
-        width = random.randint(5, 15)
-        height = random.randint(4, 10)
-        self.config.display_settings(width, height)
-        num_cells = Util.get_num_cells(width, height, self.config.config_options('faratio'))
+        # width = random.randint(3, 5)
+        # height = random.randint(3, 5)
+        width = self.config.config_options('width')
+        height = self.config.config_options('height')
+        pop_size = self.config.config_options('population_size')
+        str_settings = self.config.get_display_settings(width, height)
+        print(str_settings)
+        num_cells = Util.get_num_cells(width, height, self.config.config_options('required_faratio'))
+        pops = self.create_population(width, height, num_cells, pop_size)
         grid = self.generate(width, height, num_cells) # pos = fitness.floor = genes
-        self.get_fitness(grid, width, height, num_cells) # todo: revert no, no no no no fitness has already options so do not botgher the option here
+        grid2 = self.generate(width, height, num_cells)
+        childGenes = self.crossover(grid.poses, grid2.poses)
+        childGrid = Grid(childGenes, width, height)
+        print('child',childGenes)
+        print(childGrid)
+        # Util.plotGrid(grid)
 
+        fitness = self.get_fitness(grid, width, height, num_cells) # todo: revert no, no no no no fitness has already options so do not botgher the option here
+        Util.plotColorMesh(grid, fitness, str_settings)
         # fitOpt, massOpt, paramOpt, optOpt = config.get_options()
         # self.fitOptions = walls # todo proper option control with classes
         # print(walls)
@@ -47,6 +62,7 @@ class GenArchiPlan(unittest.TestCase):
         print(outline)
     def get_fitness(self, grid, width, height, num_cells):
         fitness = Fitness(grid, width, height, num_cells)
+        return fitness
         # print(fitness)
         # perimeter = fitness.boundary_length()
         # southSide = fitness.south_view_ratio()
@@ -84,6 +100,7 @@ class GenArchiPlan(unittest.TestCase):
         # # todo: finish local functions of grid.py moving from fitness all thest
         print('\nCreated Shape')
         print(Grid(genes, width, height), '\n') #  Final Shape
+
         # print('grouped by row:' , grid.grouped_by_row())
         # print('grouped by col:' , grid.grouped_by_col())
         # adjGraph = grid.buildUndirectedGraph()
@@ -91,11 +108,24 @@ class GenArchiPlan(unittest.TestCase):
 
         return grid
 
+    def create_population(self, width, height, num_cells, population_size):
+        pops = []
+        for i in range(population_size):
+            pops.append(self.generate(width, height, num_cells))
+        return pops
+
+    def create_mating_pool(self, population, fnFitness):
+        pass
+
+    def crossover(self, genes1, genes2):
+        pt = random.randint(0, len(genes1) - 2)
+        child = genes1[:pt] + genes2[pt:]
+        return child
     #@repeat(10)
     def test_generate(self):
         width = self.config.config_options('width')
         height = self.config.config_options('height')
-        floorAreaRatio = self.config.config_options('faratio')
+        floorAreaRatio = self.config.config_options('required_faratio')
         num_cells = Util.get_num_cells(width, height, floorAreaRatio)
 
         grid = self.generate(width, height, num_cells)
