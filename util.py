@@ -4,6 +4,7 @@ import re
 import math
 from collections.abc import Iterable
 import matplotlib.pyplot as plt
+import csv
 import matplotlib.gridspec as gridspec
 
 
@@ -108,6 +109,30 @@ class Util:
         print(plt.axis())
         plt.show()
 
+    def plotGridOnlyl(pops):
+        plotrows = 8
+        plotcols = math.ceil(len(pops) / plotrows)
+        fig, axs = plt.subplots(plotcols,plotrows)
+        plt.subplots_adjust(hspace=0.1, wspace=0.1)
+
+
+        i = 0
+        for land in pops:
+            mat = [[0] * land.width for _ in range(land.height)]
+
+            for cell in land.poses:
+                # mat[cell.y][cell.x] = 1
+                y = land.height - 1 - cell.y  # to reverse y value to transform screen coordinate to plot coordinate
+                mat[y][cell.x] = 1
+            plotcol, plotrow = divmod(i, plotrows)
+            axs[plotcol, plotrow].pcolormesh(mat, cmap='gray_r', alpha=0.7, edgecolor='silver', linewidth=0)
+            axs[plotcol, plotrow].set_xticks([])
+            axs[plotcol, plotrow].set_yticks([])
+            axs[plotcol, plotrow].set_aspect(1.0)
+            i += 1
+
+        plt.show()
+
     def plotColorMesh(land, fitness,txt_setting):
         sqmt = f'm\u00b2'
         postfix_plan = ['', '', '', 'm', 'm', 'm', sqmt, 'm', '','','']
@@ -141,6 +166,7 @@ class Util:
         plt.savefig(filename)
         plt.show()
 
+    @staticmethod
     def set_gridplot_text(fig, gsloc, attrs):
         ax=fig.add_subplot(gsloc)
         ax.set_xticks([])
@@ -150,6 +176,14 @@ class Util:
                 # verticalalignment='top',
                 )
         ax.axis(False)
+
+    @staticmethod
+    def saveCsv(filename, fits):
+        keys = fits[0].keys()
+        with open(filename, 'w') as fp:
+                dict_writer = csv.DictWriter(fp, keys)
+                dict_writer.writeheader()
+                dict_writer.writerows(fits)
 
     @staticmethod
     def dsf_util(visited, graph, node, components):

@@ -22,41 +22,35 @@ def repeat(times):
 class GenArchiPlan(unittest.TestCase):
     config = Options()  # todo:  get rid of all config instance related functions and objects
 
-    @repeat(2)
-    def test1(self):
-        # width = random.randint(3, 5)
-        # height = random.randint(3, 5)
+    # test all the case for massive data for statistics
+    def test(self):
         width = self.config.config_options('width')
         height = self.config.config_options('height')
         pop_size = self.config.config_options('population_size')
         str_settings = self.config.get_display_settings(width, height)
         print(str_settings)
         num_cells = Util.get_num_cells(width, height, self.config.config_options('required_faratio'))
-        pops = self.create_population(width, height, num_cells, pop_size, str_settings)
-        print('population size created',len(pops))
-        grid = self.generate(width, height, num_cells) # pos = fitness.floor = genes
-        grid2 = self.generate(width, height, num_cells)
-        childGenes = self.crossover(grid.poses, grid2.poses)
-        childGrid = Grid(childGenes, width, height)
-        print('child',childGenes)
-        print(childGrid)
-        # Util.plotGrid(grid)
+        pops = self.create_population_all(width, height, num_cells, pop_size, str_settings)  # todo : for f(ss) test
 
-        fitness = self.get_fitness(grid, width, height, num_cells) # todo: revert no, no no no no fitness has already options so do not botgher the option here
-        Util.plotColorMesh(grid, fitness, str_settings)
-        # fitOpt, massOpt, paramOpt, optOpt = config.get_options()
-        # self.fitOptions = walls # todo proper option control with classes
-        # print(walls)
-        # width, height, floorAreaRatio = massOpt['width'], massOpt['height'], massOpt['faratio']
+    @repeat(1)
+    def later_test1(self):
+        width = self.config.config_options('width')
+        height = self.config.config_options('height')
+        pop_size = self.config.config_options('population_size')
+        str_settings = self.config.get_display_settings(width, height)
+        print(str_settings)
+        num_cells = Util.get_num_cells(width, height, self.config.config_options('required_faratio'))
+        pops = self.create_population(width, height, num_cells, pop_size, str_settings) #todo : for f(ss) test
+        # pops = self.create_population_all(width, height, num_cells, pop_size, str_settings)
+        # print('population size created',len(pops))
+        # grid = self.generate(width, height, num_cells) # pos = fitness.floor = genes
+        # grid2 = self.generate(width, height, num_cells)
+        # childGenes = self.crossover(grid.poses, grid2.poses)
+        # childGrid = Grid(childGenes, width, height)
+        # fitness = self.get_fitness(grid, width, height, num_cells) # todo: revert no, no no no no fitness has already options so do not botgher the option here
+        # Util.plotColorMesh(grid, fitness, str_settings)
 
-
-        # todo: finish local functions of grid.py moving from fitness all thest
-        # adjGraph = grid.buildUndirectedGraph()
-        # print(adjGraph)
-        # print(grid)
-
-        # self.generate_multi(width, height, num_cells)
-    def test2(self):
+    def don_test2(self):
         polygon_tiles = [(3, 0), (4, 0), (3, 1), (4, 1), (0, 2), (1, 2), (2, 2), (3, 2),
                          (4, 2), (0, 3), (1, 3), (2, 3), (3, 3), (4, 3)]
         outline = Util.trace(polygon_tiles)
@@ -109,22 +103,38 @@ class GenArchiPlan(unittest.TestCase):
 
         return grid
 
+    # building_line을 충족하지 못하는 것도 모두
+    def create_population_all(self, width, height, num_cells, population_size, str_settings):
+        pops = []
+        fitnesses = []
+        while len(pops) < population_size:
+            genes = self.generate(width, height, num_cells)
+            fitness = Fitness(genes, width, height, num_cells)
+            fitnesses.append(fitness._fits)
+            attr, fits, edges = fitness.build_attrs(genes,num_cells)
+            pops.append(genes)
+            # if(fitness._fits['f(FSH)']<0.1): #todo : print peculiar pattern
+            #     Util.plotColorMesh(genes, fitness, str_settings)
+            # Util.plotColorMesh(genes, fitness, str_settings) # todo change to this whenever needed to print values
+        # Util.plotGridOnlyl(pops)
+        Util.saveCsv('fitnesses.csv', fitnesses)
     def create_population(self, width, height, num_cells, population_size, str_settings):
-        pops = {}
-        while len(pops) <= population_size:
+        pops = []
+        while len(pops) < population_size:
         # for i in range(population_size):
             genes = self.generate(width, height, num_cells)
             fitness = Fitness(genes, width, height, num_cells)
             attr, fits, edges = fitness.build_attrs(genes,num_cells)
-
-            if fits['fulfill building line'] == 'Succeeded':
-                indv['genes'] = genes
+            if fits['Fulfill Building Line'] == 'Success':
+                    # and fits['sunlight hours'] > 8\
+                    # and fits['pa_ratio'] >= 0.7  :
                 pops.append(genes)
-                Util.plotColorMesh(genes, fitness, str_settings)
+                Util.plotColorMesh(genes, fitness, str_settings) # todo change to this whenever needed to print values
+        # Util.plotGridOnlyl(pops) #todo to draw plot
         return pops
 
     def create_mating_pool(self, population, fitness_name):
-
+        pass
 
     def crossover(self, genes1, genes2):
         pt = random.randint(0, len(genes1) - 2)

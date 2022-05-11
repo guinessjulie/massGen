@@ -31,24 +31,67 @@ class Fitness:
         attrs['real max width'] = max_width *  config.config_options('cell_length')
         real_vertical_length = max_height *  config.config_options('cell_length')
         attrs['real max height'] = real_vertical_length
-        attrs['boundary_walls'], attrs['area'], attrs['perimeter'], fits['pa_ratio'], attrs['real faratio'] = self.pa_ratio(numCell)
 
-        fits['optimal fa_ratio'] = attrs['real faratio'] / self.config_options('required_faratio')
-        fits['symmetry'] = self.get_symmetry()
-        edges, aspect_ratio, south_side = self.side_cells()
-        fits['south_side'] = south_side
+        buildingends, lotends, fits['Fulfill Building Line'] = self.fulfill_building_line(grid_by_row, grid_by_col)
+        fits['Setbacks'] = 'Failure' if fits['Fulfill Building Line'] == 'Failure' else self.check_setbakcs(buildingends, lotends, grid_by_row, grid_by_col)
+        attrs['boundary_walls'], attrs['area'], attrs['perimeter'],f_par, attrs['real faratio'] = self.pa_ratio(numCell)
+        fits['f(BCR)'] = attrs['real faratio'] / self.config_options('required_faratio')
+        fits['f(PAR)'] = f_par
+        edges = self.get_edges()
+        aspect_ratio = self.get_aspect_ratio(edges)
+        south_side = self.get_south_ratio(edges)
+        fits['FSH(Sunlight Hours)'], fits['f(FSH)'] = self.get_daylight_15min(edges) # todo test and finish to get detailed 15min sunlight
+        fits['f(SSR)'] = south_side
+        fits['AR(Aspect Ratio)'] = aspect_ratio
         optimal_aspect_ratio = self.config_options('optimal_aspect_ratio')[0] # because it returns list
         optimal_aspect_ratio_value = constant.RATIOS[optimal_aspect_ratio]
-        fits['aspect_ratio'] = aspect_ratio
-        fits['Fitness Aspect Ratio'] = aspect_ratio / optimal_aspect_ratio_value
+        fits['f(AR)'] = min(aspect_ratio, optimal_aspect_ratio_value) / max(optimal_aspect_ratio_value, aspect_ratio)
+
+        # fits['f(AR)'] = aspect_ratio / optimal_aspect_ratio_value
+        fits['f(VSymm)'], fits['f(HSymm)'] = self.get_symmetry()
         # fits['daylight hour'] = self.get_daylight_hour(edges, real_vertical_length) # todo edges not set yet
-        fits['sunlight hours'], fits['Fitness Sunlight'] = self.get_daylight_15min(edges) # todo test and finish to get detailed 15min sunlight
-        buildingends, lotends, fits['fulfill building line'] = self.fulfill_building_line(grid_by_row, grid_by_col)
-        fits['setbacks'] = 'Failed' if fits['fulfill building line'] == 'Failed' else self.check_setbakcs(buildingends, lotends, grid_by_row, grid_by_col)
         return attrs, fits, edges
         # Util.printAdjGraph(self.graph) #todo: for Debug
+    
+    # for Column name renaming 
+    def build_attrs2(self, gridpos, numCell):
+        attrs = {}
+        fits = {}
+        config = Options()
+        grid_by_col = gridpos.sorted_by_col()
+        grid_by_row = gridpos.sorted_by_row()
+
+        attrs['number of cells'] = numCell
+        max_width = grid_by_col[numCell - 1].x - grid_by_col[0].x + 1
+        max_height = grid_by_row[numCell - 1].y - grid_by_row[0].y + 1
+        attrs['max width'] = max_width
+        attrs['max height'] = max_height
+        attrs['real max width'] = max_width *  config.config_options('cell_length')
+        real_vertical_length = max_height *  config.config_options('cell_length')
+        attrs['real max height'] = real_vertical_length
+
+        buildingends, lotends, fits['Fulfill Building Line'] = self.fulfill_building_line(grid_by_row, grid_by_col)
+        fits['Setbacks'] = 'Failure' if fits['Fulfill Building Line'] == 'Failure' else self.check_setbakcs(buildingends, lotends, grid_by_row, grid_by_col)
+        attrs['boundary_walls'], attrs['area'], attrs['perimeter'],f_par, attrs['real faratio'] = self.pa_ratio(numCell)
+        fits['f(BCR)'] = attrs['real faratio'] / self.config_options('required_faratio')
+        fits['f(PAR)'] = f_par
+        edges = self.get_edges()
+        aspect_ratio = self.get_aspect_ratio(edges)
+        south_side = self.get_south_ratio(edges)
+        fits['FSH(Sunlight Hours)'], fits['f(FSH)'] = self.get_daylight_15min(edges) # todo test and finish to get detailed 15min sunlight
+        fits['f(SSR)'] = south_side
+        fits['AR(Aspect Ratio)'] = aspect_ratio
+        optimal_aspect_ratio = self.config_options('optimal_aspect_ratio')[0] # because it returns list
+        optimal_aspect_ratio_value = constant.RATIOS[optimal_aspect_ratio]
+        fits['f(AR)'] = min(aspect_ratio, optimal_aspect_ratio_value) / max(optimal_aspect_ratio_value, aspect_ratio)
+        fits['f(VSymm)'], fits['f(HSymm'] = self.get_symmetry()
+        # fits['daylight hour'] = self.get_daylight_hour(edges, real_vertical_length) # todo edges not set yet
+        return attrs, fits, edges
+        # Util.printAdjGraph(self.graph) #todo: for Debug#
+
 
 # 따로 떼자 너무 복잡
+
     def fulfill_building_line(self, rows, cols):
         road_side= self.config_options('road_side')[0] #todo f
         print('road side')
@@ -77,9 +120,9 @@ class Fitness:
 
         # first test building_line
         if required_setbacks[road_side] < plan_setbacks[road_side]:
-            return buildingends, lotends, 'Succeeded'
+            return buildingends, lotends, 'Success'
         else:
-            return buildingends, lotends, 'Failed'
+            return buildingends, lotends, 'Failure'
 
 
 
@@ -93,8 +136,9 @@ class Fitness:
            abs(buildingends['north'](rows) - lotends['north'])*2 > setback_requirement  and \
            abs(buildingends['east'](rows) - lotends['east'])*2 > setback_requirement and \
            abs(buildingends['west'](rows) - lotends['west'])*2 > setback_requirement:
-            return 'Succeeded'
-        else : return 'Failed'
+            return 'Success'
+        else :
+            return 'Failure'
         #
         # required_setbacks[road_side] = building_line_setback + setback_requirement
         # plan_setbacks[road_side] = (building_end_north - land_end_north ) * cell_length
@@ -102,22 +146,22 @@ class Fitness:
         # 있는 경우에 Failed가 되었다면, 이미 전체가 다 Fail해서 더이상 조사하지 않고 리턴해버렸다.
         # None인데 아직 이 문장을 확인한다는 것은 있다는 거는 succeeded
         # if required_setbacks.get('south') is None: # road_side가 아닌 경우 대지내공지만 확인
-        #     plan_setbacks['south'] ='Succeeded' \
+        #     plan_setbacks['south'] ='Success' \
         #         if (land_end_south - building_end_south) * 2 > setback_requirement \
-        #         else 'Failed'
+        #         else 'Failure'
         # if required_setbacks.get('east') is None: #road_side가 아닌 경우 대지내공지만 확인
-        #     plan_setbacks['east'] ='Succeeded' \
+        #     plan_setbacks['east'] ='Success' \
         #         if (land_end_east - building_end_east) * 2 > setback_requirement \
-        #         else 'Failed'
+        #         else 'Failure'
         # if required_setbacks.get('north') is None: # road_side가 아닌 경우 대지내공지만 확인
-        #     plan_setbacks['north'] ='Succeeded' \
+        #     plan_setbacks['north'] ='Success' \
         #         if (building_end_north - land_end_north ) * 2 > setback_requirement \
-        #         else 'Failed'
+        #         else 'Failure'
         # if required_setbacks.get('west') is None: #road_side가 아닌 경우 대지내공지만 확인
-        #     plan_setbacks['west'] ='Succeeded' \
+        #     plan_setbacks['west'] ='Success' \
         #         if (building_end_west - land_end_west) * 2 > setback_requirement \
-        #         else 'Failed'
-        #     return required_building_line_result, 'Failed'
+        #         else 'Failure'
+        #     return required_building_line_result, 'Failure'
 
 
 
@@ -173,7 +217,8 @@ class Fitness:
     def get_daylight_15min(self, edges):
         h = self.config_options('height_diff_south')
         occluded_distance_to_south= self.config_options('adjacent_distance_south')
-        avg_d = self.south_gap(edges) + occluded_distance_to_south
+        south_gap_edges = self.south_gap(edges)
+        avg_d = south_gap_edges + occluded_distance_to_south
         altitudes = []
         solar_data = {}
         with open(constant.SOLAR_ELEVATION_ANGLE, 'r') as fp:
@@ -199,6 +244,7 @@ class Fitness:
         print(Util.bounding_box(newpos)) # todo recover
 
     def get_symmetry(self):
+        # return 0,0
         newpos = Util.move_topleft(self._grid.poses)
         bb = Util.bounding_box(newpos)
         width = bb[1]+1; height = bb[3]+1
@@ -210,8 +256,11 @@ class Fitness:
         # Horizontal Symmetry
         while(i < width // 2): #floor division operator
             for j in range(width):
-                if(newgrid.grid[i][j] != newgrid.grid[k][j]):
-                    horz_diff +=1
+                try:
+                    if(newgrid.grid[i][j] != newgrid.grid[k][j]):
+                        horz_diff +=1
+                except IndexError:
+                    return 0,0
             i += 1; k -= 1
 
         # Vertical Symmetry
@@ -219,8 +268,11 @@ class Fitness:
         while (i < height // 2):
             # Checking each cell of a row.
             for j in range(height):
-                if (newgrid.grid[j][i] != newgrid.grid[j][k]):
-                    vertical_diff += 1
+                try:
+                    if (newgrid.grid[j][i] != newgrid.grid[j][k]):
+                        vertical_diff += 1
+                except IndexError:
+                    return 0, 0
             k -= 1; i += 1
 
         vertical_symm = 1 - vertical_diff / len(self._grid.poses)
@@ -240,8 +292,31 @@ class Fitness:
         return numCell * 4 - insideWall
 
 
+    def get_aspect_ratio(self, edges):
+        return  len(edges['south']) / len(edges['east'])
 
-    def side_cells(self):
+    def get_south_ratio(self, edges):
+        cell_length = self.config_options('cell_length')
+        south_side_length = len(edges['south']) * cell_length
+        land_horiz_length = self._width * cell_length
+        setback = self.config_options('setback_requirement')
+        one_side_setback = cell_length if setback < cell_length else setback
+        both_side_setback =  one_side_setback * 2
+        max_south_length = land_horiz_length - both_side_setback
+        return south_side_length / max_south_length
+
+    # def side_cells(self):
+    #
+    #     list_of_edges = [edges[i] for i in edges]
+    #     set_edges = set([cell for cells in list_of_edges  for cell in cells]) #flattened=>set
+    #     feasible_south_ratio = self._width / len(set_edges)
+    #     south_side_ratio =  len(edges['south'] ) / len(set_edges)
+    #     new_ratio = south_side_ratio / feasible_south_ratio
+    #     south_side_ratio2 = len(edges['south']) /self._width
+    #     # return edges, aspect_ratio, south_side_ratio
+    #     return edges, aspect_ratio, south_side_ratio2
+
+    def get_edges(self):
         rows = self._grid.grouped_by_row()
         cols = self._grid.grouped_by_col()
         edges = {}
@@ -249,8 +324,4 @@ class Fitness:
         edges['west'] = [min(row, key=lambda pos: pos.x) for row in rows]
         edges['south'] = [max(col, key=lambda pos: pos.y) for col in cols]
         edges['north'] = [min(col, key=lambda pos: pos.y) for col in cols]
-        aspect_ratio = len(edges['south']) / len(edges['east'])
-        list_of_edges = [edges[i] for i in edges]
-        set_edges = set([cell for cells in list_of_edges  for cell in cells]) #flattened=>set
-        south_side_ratio =  len(edges['south'] ) / len(set_edges)
-        return edges, aspect_ratio, south_side_ratio
+        return edges
