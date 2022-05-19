@@ -67,7 +67,7 @@ class GenArchiPlan(unittest.TestCase):
     # change algorighm to speed up
     # only expend from last selected cell
     # the result is so random with alot of empty cell in the middle
-    def generate_new(self, width, height, num_cells):
+    def generate_new_save(self, width, height, num_cells):
         genes = [Pos(int(width / 2), math.floor(height / 2))]  # todo: genes to genes
         grid = Grid(genes, width, height)
         pickedIdx = len(genes) -1
@@ -127,7 +127,64 @@ class GenArchiPlan(unittest.TestCase):
         # print(adjGraph)
 
         return grid
+    def generate_new(self, width, height, num_cells):
+        genes = [Pos(int(width / 2), math.floor(height / 2))]  # todo: genes to genes
+        grid = Grid(genes, width, height)
+        pickedIdx = len(genes) -1
+        no_adj_avaiables = []
+        genes_available = genes.copy()
+        tgenes = tuple(genes)
+        adjs_occupied = {}
+        genes_not_available = {}
+        while len(genes) < num_cells:
+            adjs = grid.adjacency(genes[pickedIdx])
+            available_adjs = [x for x in adjs if x not in genes]# adjs that is not in genes
+            if available_adjs :
+                picked_adj = random.choice(available_adjs)
+            else:
+                all_cells = [Pos(x, y) for x in range(width) for y in range(height)]
+                empty_cells = [x for x in all_cells if x not in genes]
+                picked_adj = random.choice(empty_cells) # how do i choose adjs from one of genes
 
+            if adjs_occupied.get(pickedIdx) is None:
+                adjs_occupied[pickedIdx] = set()
+            if adjs_occupied.get(pickedIdx+1) is None:
+                adjs_occupied[pickedIdx+1] = set()
+
+            naver = set(x for x in grid.adjacency(picked_adj) if x in genes)
+            adjs_occupied[pickedIdx+1] = adjs_occupied[pickedIdx + 1] | naver
+
+            adjs_occupied[pickedIdx].add(picked_adj)
+            for val in naver:
+                loc_adj = genes.index(val)
+                adjs_occupied[loc_adj].add(picked_adj)
+            genes.append(picked_adj)
+            pickedIdx += 1 # todo: lets pick it form genes available
+
+
+            # adjs_occupied[pickedIdx] = list(picked_adj) if not adjs_occupied else adjs_occupied[pickedIdx].append(picked_adj)
+            # pickedIdx = [x for x in genes if not adjs_occupied[x]]:
+            #
+            # if available_adjs:
+            #     pickedAdj = random.choice(available_adjs)
+            #     genes.append(pickedAdj)
+            #     pickedIdx = len(genes) - 1
+            # else:
+            #     genes_not_available+=adjs
+            #     pickedIdx = [x for x in genes if not genes_not_available.contains(adjs)]
+
+        grid.update_positions(genes)
+        # print('grid\n',grid)
+        # # todo: finish local functions of grid.py moving from fitness all thest
+        print('\nCreated Shape')
+        print(Grid(genes, width, height), '\n')  # Final Shape
+
+        # print('grouped by row:' , grid.grouped_by_row())
+        # print('grouped by col:' , grid.grouped_by_col())
+        # adjGraph = grid.buildUndirectedGraph()
+        # print(adjGraph)
+
+        return grid
     def generate(self, width, height, num_cells):
         genes = [Pos(int(width/2), math.floor(height/2))] #todo: genes to genes
         grid = Grid(genes, width, height)
