@@ -71,15 +71,13 @@ class GenArchiPlan(unittest.TestCase):
         genes = [Pos(int(width / 2), math.floor(height / 2))]  # todo: genes to genes
         grid = Grid(genes, width, height)
         pickedIdx = len(genes) -1
-        currentIdx = len(genes) -1
         no_adj_avaiables = []
         genes_available = genes.copy()
         tgenes = tuple(genes)
         adjs_occupied = {}
         genes_not_available = {}
         while len(genes) < num_cells:
-            # adjs = grid.adjacency(genes[pickedIdx])
-            adjs = grid.adjacency(genes[currentIdx])
+            adjs = grid.adjacency(genes[pickedIdx])
             available_adjs = [x for x in adjs if x not in genes]# adjs that is not in genes
             if available_adjs :
                 picked_adj = random.choice(available_adjs)
