@@ -6,13 +6,6 @@ from collections.abc import Iterable
 import matplotlib.pyplot as plt
 import csv
 import matplotlib.gridspec as gridspec
-
-
-def loadIniFile(inifile):
-    options = configparser.ConfigParser()
-    options.read(inifile)
-    return options
-
 class Pos:
     def __init__(self, x, y):
         self.x = x
@@ -25,9 +18,18 @@ class Pos:
         return str(self)
     def __hash__(self):
         return self.x*1000+self.y
+    def to_list(self):
+        return list((self.x, self.y))
+
     def to_tuples(self):
         return (self.x, self.y)
 
+
+
+def loadIniFile(inifile):
+    options = configparser.ConfigParser()
+    options.read(inifile)
+    return options
 
 class Util:
     @staticmethod
@@ -110,7 +112,7 @@ class Util:
         plt.show()
 
     def plotGridOnlyl(pops):
-        plotrows = 8
+        plotrows = 5
         plotcols = math.ceil(len(pops) / plotrows)
         fig, axs = plt.subplots(plotcols,plotrows)
         plt.subplots_adjust(hspace=0.1, wspace=0.1)
@@ -131,6 +133,9 @@ class Util:
             axs[plotcol, plotrow].set_aspect(1.0)
             i += 1
 
+
+        filename = './results/conditional_'+ datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")[4:]
+        plt.savefig(filename)
         plt.show()
 
     def plotColorMesh(land, fitness,txt_setting):
@@ -213,12 +218,16 @@ class Util:
                                and loc != Pos(x+loc.x, y+loc.y)
                                and abs(x) != abs(y)
                               )]
+    @staticmethod
+    def all_cell(self, width, height):
+        return [ i for i in list(Pos(x, y) for x in range(width) for y in range(height))]
 
     @staticmethod
     def move_topleft(positions):
         miny = min(positions, key=lambda pos:pos.y).y
         minx = min(positions, key=lambda pos: pos.x).x
         return [Pos(pos.x-minx, pos.y-miny) for pos in positions]
+
 
     @staticmethod
     def bounding_box(positions):
