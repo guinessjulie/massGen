@@ -7,6 +7,7 @@ from fitness import Fitness
 from grid import Grid
 from options import Options
 import math
+from collections import deque
 
 import matplotlib.pyplot as plt
 
@@ -129,35 +130,38 @@ class GenArchiPlan(unittest.TestCase):
         genes = [Pos(int(width / 2), math.floor(height / 2))]  # todo: genes to genes
         grid = Grid(genes, width, height)
         pickedIdx = len(genes) -1
-        no_adj_avaiables = []
-        genes_available = genes.copy()
-        tgenes = tuple(genes)
+        currentIdx = len(genes) -1
         adjs_occupied = {}
-        genes_not_available = {}
+        genes_stack = deque()
         while len(genes) < num_cells:
-            adjs = grid.adjacency(genes[pickedIdx])
+            adjs = grid.adjacency(genes[currentIdx])
+            nextIdx = currentIdx + 1
             available_adjs = [x for x in adjs if x not in genes]# adjs that is not in genes
+            while not available_adjs:
+                new_candidateIdx = genes_stack.pop()
+                adjs = grid.adjacency(genes[new_candidateIdx])
+                available_adjs = [x for x in adjs if x not in genes]
             if available_adjs :
                 picked_adj = random.choice(available_adjs)
             else:
                 all_cells = [Pos(x, y) for x in range(width) for y in range(height)]
                 empty_cells = [x for x in all_cells if x not in genes]
-                picked_adj = random.choice(empty_cells) # how do i choose adjs from one of genes
+                picked_adj = random.choice(empty_cells) # how do i choose adjs from one of genes adjs
 
-            if adjs_occupied.get(pickedIdx) is None:
-                adjs_occupied[pickedIdx] = set()
-            if adjs_occupied.get(pickedIdx+1) is None:
-                adjs_occupied[pickedIdx+1] = set()
+            if adjs_occupied.get(currentIdx) is None:
+                adjs_occupied[currentIdx] = set()
+            if adjs_occupied.get(nextIdx) is None:
+                adjs_occupied[nextIdx] = set()
 
             naver = set(x for x in grid.adjacency(picked_adj) if x in genes)
-            adjs_occupied[pickedIdx+1] = adjs_occupied[pickedIdx + 1] | naver
-
-            adjs_occupied[pickedIdx].add(picked_adj)
+            adjs_occupied[nextIdx] = adjs_occupied[nextIdx] | naver
+            adjs_occupied[currentIdx].add(picked_adj)
             for val in naver:
                 loc_adj = genes.index(val)
                 adjs_occupied[loc_adj].add(picked_adj)
             genes.append(picked_adj)
-            pickedIdx += 1 # todo: lets pick it form genes available
+            genes_stack.append(currentIdx)
+            currentIdx = nextIdx # todo: lets pick it form genes available
 
 
             # adjs_occupied[pickedIdx] = list(picked_adj) if not adjs_occupied else adjs_occupied[pickedIdx].append(picked_adj)
