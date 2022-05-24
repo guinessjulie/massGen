@@ -126,7 +126,81 @@ class GenArchiPlan(unittest.TestCase):
         # print(adjGraph)
 
         return grid
+
+    def initialize_adjs_available(self,width, height):
+        adjs_available = {}
+
+
+        for y in range(height):
+            for x in range(width):
+                valid_adjs = 4
+                pos = Pos(x, y)
+                if pos.x <= 0 or pos.x >= width - 1:
+                    valid_adjs -= 1
+                if pos.y <= 0 or pos.y >= height - 1:
+                    valid_adjs -= 1
+                adjs_available[Pos(x, y)] = valid_adjs
+        return adjs_available
+
+    # random하게 선택하게 해보자.
     def generate_new(self, width, height, num_cells):
+        genes = [Pos(int(width / 2), math.floor(height / 2))]  # todo: genes to genes
+        grid = Grid(genes, width, height)
+        currentIdx = len(genes) - 1
+        adjs_occupied = {}
+        adjs_available = self.initialize_adjs_available(width, height)
+        genes_stack = deque([0])
+        pickedIdx = currentIdx
+        while len(genes) < num_cells:
+            adjs = grid.adjacency(genes[pickedIdx])
+            nextIdx = currentIdx + 1
+            available_adjs = [x for x in adjs if x not in genes] # adjs that is not in genes
+            while not available_adjs:
+                new_candidateIdx = genes_stack.pop()
+                adjs = grid.adjacency(genes[new_candidateIdx])
+                available_adjs = [x for x in adjs if x not in genes]
+                pickedIdx = None #becuase there is no adjs for piced, so randomly pickedIdx in empty space, so there is no pickedIdx
+            picked_adj = random.choice(available_adjs)
+
+            if adjs_occupied.get(currentIdx) is None:
+                adjs_occupied[currentIdx] = set()
+            if adjs_occupied.get(nextIdx) is None:
+                adjs_occupied[nextIdx] = set()
+
+            genes.append(picked_adj)
+            naver = set(x for x in grid.adjacency(picked_adj) if x in genes) #naver 는  genes에 있는 모든 adjs
+            adjs_occupied[nextIdx] = adjs_occupied[nextIdx] | naver
+            for naver_gene in naver: #이웃하는 노드들 in genes
+                naver_loc = genes.index(naver_gene) #위치를 가져와서
+                if not adjs_occupied[naver_loc].__contains__(picked_adj): #그 위치가 이미 다음 picked_adjs를 포함하지 않는다면, 즉 거기에서 유래되는 자식노드가 이미 점령되지 않았다면
+                    adjs_occupied[naver_loc].add(picked_adj) # todo : check redundancy below
+                    adjs_available[picked_adj] -= 1 #naver의 개수만큼 차감하는 거 맞아
+                    adjs_available[naver_gene] -= 1
+                    # adjs_available[genes[pickedIdx]] -= 1 #picked
+            # adjs_occupied[currentIdx].add(picked_adj)
+            # if pickedIdx is not None: #todo: check redundancy
+            #     adjs_occupied[pickedIdx].add(picked_adj)
+            #     # adjs_available[pickedIdx] = 4-adjs_occupied[pickedIdx]
+            genes_stack.append(nextIdx)
+            currentIdx = nextIdx # todo: lets pick it form genes available
+            # sample = [k for k in adjs_occupied if len(list(adjs_occupied.get(k)))<4]
+            sample_available = [k for k in adjs_available if adjs_available.get(k) > 0]
+            sample_genes = [genes.index(g) for g in sample_available if g in genes]
+            pickedIdx = random.choice(sample_genes)
+            # adjs_available[currentIdx].add()
+        grid.update_positions(genes)
+        # print('grid\n',grid)
+        # # todo: finish local functions of grid.py moving from fitness all thest
+        print('\nCreated Shape')
+        print(Grid(genes, width, height), '\n')  # Final Shape
+
+        # print('grouped by row:' , grid.grouped_by_row())
+        # print('grouped by col:' , grid.grouped_by_col())
+        # adjGraph = grid.buildUndirectedGraph()
+        # print(adjGraph)
+
+        return grid
+    def generate_new_saved_version2(self, width, height, num_cells):
         genes = [Pos(int(width / 2), math.floor(height / 2))]  # todo: genes to genes
         grid = Grid(genes, width, height)
         pickedIdx = len(genes) -1
@@ -141,12 +215,7 @@ class GenArchiPlan(unittest.TestCase):
                 new_candidateIdx = genes_stack.pop()
                 adjs = grid.adjacency(genes[new_candidateIdx])
                 available_adjs = [x for x in adjs if x not in genes]
-            if available_adjs :
-                picked_adj = random.choice(available_adjs)
-            else:
-                all_cells = [Pos(x, y) for x in range(width) for y in range(height)]
-                empty_cells = [x for x in all_cells if x not in genes]
-                picked_adj = random.choice(empty_cells) # how do i choose adjs from one of genes adjs
+            picked_adj = random.choice(available_adjs)
 
             if adjs_occupied.get(currentIdx) is None:
                 adjs_occupied[currentIdx] = set()
@@ -162,18 +231,6 @@ class GenArchiPlan(unittest.TestCase):
             genes.append(picked_adj)
             genes_stack.append(currentIdx)
             currentIdx = nextIdx # todo: lets pick it form genes available
-
-
-            # adjs_occupied[pickedIdx] = list(picked_adj) if not adjs_occupied else adjs_occupied[pickedIdx].append(picked_adj)
-            # pickedIdx = [x for x in genes if not adjs_occupied[x]]:
-            #
-            # if available_adjs:
-            #     pickedAdj = random.choice(available_adjs)
-            #     genes.append(pickedAdj)
-            #     pickedIdx = len(genes) - 1
-            # else:
-            #     genes_not_available+=adjs
-            #     pickedIdx = [x for x in genes if not genes_not_available.contains(adjs)]
 
         grid.update_positions(genes)
         # print('grid\n',grid)
