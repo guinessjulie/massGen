@@ -1,5 +1,5 @@
 from util import Util
-from grid import Grid
+from landgrid import LandGrid
 
 from options import Options
 class Fitness:
@@ -52,7 +52,7 @@ class Fitness:
         bb = Util.bounding_box(newpos)
         width = bb[1]+1
         height = bb[3]+1
-        newgrid = Grid(newpos, width, height)
+        newgrid = LandGrid(newpos, width, height)
         print(newgrid)
         horz_diff = 0
         vertical_diff = 0

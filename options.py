@@ -23,7 +23,7 @@ class Options:
         self._options['Mass'] = {
             'width': '5',
             'height': '6',
-            'faRatio': '0.3',
+            'faRatio': '0.4',
             'cell_size':  '1000', #mm 1000mm = 1m
             'max_area': '150', # todo: now forget about this
             'min_area': '120', # todo: now forget about this

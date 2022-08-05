@@ -1,9 +1,6 @@
 from util import Util, Pos
-
-
-
-
-class Grid:
+from collections import Counter
+class LandGrid:
     def __init__(self, poses, width, height):
         self.grid = [['.']*width for _ in range(height)]
         self.poses = poses
@@ -17,6 +14,9 @@ class Grid:
 
     def __str__(self):
         return '\n'.join(' '.join(row) for row in self.grid)
+
+    def __eq__(self, other):
+        return Counter(self) == Counter(other)
 
     def adjacency(self, loc):
         return Util.adjacent_four_way(loc, self.width, self.height)
@@ -33,8 +33,12 @@ class Grid:
 
     def display_genes(self, genes):
         self.grid = [['.'] * self.width for _ in range(self.height)]
+        print(self.poses)
         for p in genes:
             self.grid[p.y][p.x] = 'X'
+        print('\n'.join(' '.join(row) for row in self.grid))
+
+    def display_poses(self):
         print('\n'.join(' '.join(row) for row in self.grid))
 
     def update_positions(self ,poses):
@@ -44,10 +48,10 @@ class Grid:
             self.grid[p.y][p.x] = 'X'
 
     def sorted_by_row(self):
-        return sorted(self.poses, key=lambda item: item.y)
+        return sorted(self.poses, key=lambda item: (item.y, item.x))
 
     def sorted_by_col(self):
-        return sorted(self.poses, key=lambda item:item.x)
+        return sorted(self.poses, key=lambda item:(item.x, item.y))
 
     def grouped_by_row(self):
         yset = set(map(lambda pos: pos.y, self.poses))
@@ -56,6 +60,10 @@ class Grid:
     def grouped_by_col(self):
         xset = set(map(lambda pos:pos.x, self.poses))
         return[ [pos for pos in self.poses if pos.x ==x ] for x in xset]
+
+    def num_connected_component(self):
+        cc = self.connected_component()
+        return len(cc)
 
     def buildUndirectedGraph(self):
         adjGraph = {}

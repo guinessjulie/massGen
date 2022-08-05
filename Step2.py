@@ -4,7 +4,7 @@ import measureUtil
 import util
 from util import Util, Pos
 from fitness import Fitness
-from grid import Grid
+from landgrid import LandGrid
 from options import Options
 import math
 
@@ -74,7 +74,7 @@ class GenArchiPlan(unittest.TestCase):
 
     def generate(self, width, height, num_cells):
         genes = [Pos(int(width/2), math.floor(height/2))] #todo: genes to genes
-        grid = Grid(genes, width, height)
+        grid = LandGrid(genes, width, height)
 
         no_adj_avaiables = []
 
@@ -101,7 +101,7 @@ class GenArchiPlan(unittest.TestCase):
         # print('grid\n',grid)
         # # todo: finish local functions of grid.py moving from fitness all thest
         print('final shape')
-        print(Grid(genes, width, height), '\n') # todo : display test
+        print(LandGrid(genes, width, height), '\n') # todo : display test
         # print('grouped by row:' , grid.grouped_by_row())
         # print('grouped by col:' , grid.grouped_by_col())
         # adjGraph = grid.buildUndirectedGraph()
@@ -112,7 +112,7 @@ class GenArchiPlan(unittest.TestCase):
 
     def generate2(self, width, height, num_cells): # printing debug working backup version 2022-03-16
         genes = [Pos(int(width/2), math.floor(height/2))] #todo: genes to genes
-        grid = Grid(genes, width, height)
+        grid = LandGrid(genes, width, height)
         no_adj_avaiables = []
         # surr = grid.adjacency(genes[0])
         print(set(genes), num_cells)
@@ -146,7 +146,7 @@ class GenArchiPlan(unittest.TestCase):
 
             # print(grid)
         print('Grid')
-        print(Grid(genes, width, height), '\n')
+        print(LandGrid(genes, width, height), '\n')
 
         return genes
 
@@ -154,7 +154,7 @@ class GenArchiPlan(unittest.TestCase):
     def generate_(self , width, height, num_cells):
 
         genes = [Pos(int(width/2), int(height/2))] #todo: genes to genes
-        grid = Grid(genes, width, height)
+        grid = LandGrid(genes, width, height)
         surr = grid.adjacency(genes[0])
         print(set(genes), num_cells)
         while len(set(genes)) < num_cells:
@@ -165,7 +165,7 @@ class GenArchiPlan(unittest.TestCase):
         # graph = UndirectedGraph(genes, width, height)
 
         print('Grid')
-        print(Grid(genes, width, height), '\n')
+        print(LandGrid(genes, width, height), '\n')
         return genes
 
 

@@ -5,6 +5,8 @@ import math
 from collections.abc import Iterable
 import matplotlib.pyplot as plt
 import csv
+import random
+from statistics import mean
 import matplotlib.gridspec as gridspec
 class Pos:
     def __init__(self, x, y):
@@ -14,6 +16,8 @@ class Pos:
         return f"({self.x}, {self.y})"
     def __eq__(self, other):
         return self.x == other.x and self.y == other.y
+    def __lt__(self, other):
+        return self.x < other.x and self.y < other.y
     def __repr__(self):
         return str(self)
     def __hash__(self):
@@ -23,6 +27,7 @@ class Pos:
 
     def to_tuples(self):
         return (self.x, self.y)
+
 
 
 
@@ -44,6 +49,8 @@ class Util:
             print('connected compoonent:', *c)
             for adj in c:
                 print('adj:', adj)
+
+
 
     def display_str_dict(attrs, title='', postfix=None, format=':.2f'):
         postfix= [''for _ in range(len(attrs))] if postfix == None else postfix
@@ -111,7 +118,35 @@ class Util:
         print(plt.axis())
         plt.show()
 
-    def plotGridOnlyl(pops):
+    def plotGridOnlyRow(pops, plotrows, fit_txt = ''):
+        plotcols = math.ceil(len(pops) / plotrows)
+        fig, axs = plt.subplots(plotcols,plotrows)
+        plt.subplots_adjust(hspace=0.1, wspace=0.1)
+
+
+        i = 0
+        for land in pops:
+            mat = [[0] * land.width for _ in range(land.height)]
+
+            for cell in land.poses:
+                # mat[cell.y][cell.x] = 1
+                y = land.height - 1 - cell.y  # to reverse y value to transform screen coordinate to plot coordinate
+                mat[y][cell.x] = 1
+            plotcol, plotrow = divmod(i, plotrows)
+            axs[plotcol, plotrow].pcolormesh(mat, cmap='gray_r', alpha=0.7, edgecolor='silver', linewidth=0)
+            axs[plotcol, plotrow].set_xticks([])
+            axs[plotcol, plotrow].set_yticks([])
+            axs[plotcol, plotrow].text(0,20, fit_txt)
+            axs[plotcol, plotrow].set_aspect(1.0)
+            axs[plotcol, plotrow].set_title(str(i))
+            i += 1
+
+
+        filename = './results/conditional_'+ datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")[4:]
+        plt.savefig(filename)
+        plt.show()
+
+    def plotGridOnly(pops):
         plotrows = 5
         plotcols = math.ceil(len(pops) / plotrows)
         fig, axs = plt.subplots(plotcols,plotrows)
@@ -183,12 +218,24 @@ class Util:
         ax.axis(False)
 
     @staticmethod
-    def saveCsv(filename, fits):
+    def select_random_position(width, height):
+        init_row = random.randint(0, height - 1)
+        init_col = random.randint(0, width - 1)
+        genes = [ Pos(init_col, init_row)]
+        print(genes)
+        return genes
+
+    @staticmethod
+    def saveCsv(filename, fits, generation=0, fit_value=0, fitname='fitness'):
         keys = fits[0].keys()
-        with open(filename, 'w') as fp:
+        with open(filename, 'a', newline='') as fp:
                 dict_writer = csv.DictWriter(fp, keys)
                 dict_writer.writeheader()
                 dict_writer.writerows(fits)
+
+        with open(filename, 'a', newline='') as fp:
+            writer = csv.writer(fp)
+            writer.writerow(['fitname', fit_value])
 
     @staticmethod
     def dsf_util(visited, graph, node, components):
@@ -218,6 +265,17 @@ class Util:
                                and loc != Pos(x+loc.x, y+loc.y)
                                and abs(x) != abs(y)
                               )]
+    @staticmethod
+    def bound_adjacent(loc_list, width, height):
+        bound_adjs = []
+        for x in loc_list:
+            for adj in Util.adjacent_four_way(x, width, height):
+                if adj not in loc_list:
+                    bound_adjs.append(adj)
+        return list(set(bound_adjs))
+
+
+
     @staticmethod
     def all_cell(self, width, height):
         return [ i for i in list(Pos(x, y) for x in range(width) for y in range(height))]
@@ -249,6 +307,7 @@ class Util:
         return int(width * height * floorAreaRatio)
 
 
+
     # area of unit cell
     @staticmethod
     def unit_area(unit_len):
@@ -271,7 +330,11 @@ class Util:
     def tonumber(s):
         return int(s) if s.isnumeric() else Util.tofloat(s)
 
-    import math
+    @staticmethod
+    def normalize_0to1(raw):
+        if max(raw) == min(raw):
+            return [1 for i in range(len(raw))]
+        return [(float(i)-min(raw))/(max(raw)-min(raw)) for i in raw]
 
     def neighbors(coord):
         for dir in (1, 0):
@@ -319,3 +382,7 @@ class Util:
             pt = pt_next #막 추가한 네이버를 pt로 대상으로 하고
             dir1 = dir_next #다음번 방향을 dir1 로 해서
 
+class Stat:
+    @staticmethod
+    def list_mean(l):
+        return mean(l)

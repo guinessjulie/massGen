@@ -1,22 +1,23 @@
 from util import Util
-from grid import Grid
+from landgrid import LandGrid
 
 from options import Options
 import math
 
 import constant
 class Fitness:
-    def __init__(self, grid, width, height, numCell):  # floor:[(x,y),...]
+    def __init__(self, element, width, height, numCell, id=0):  # floor:[(x,y),...]
         config = Options()
         self._width, self._height = width, height,
         self.config_options = lambda ky: config.config_options(ky)
-        self._grid= grid
-        self.graph = grid.buildUndirectedGraph()
-        self._attrs, self._fits, self.edges = self.build_attrs(grid, numCell)
+        self._grid= element
+        self.graph = element.buildUndirectedGraph()
+        self._attrs, self._fits, self.edges = self.build_attrs(element, numCell, id)
+        self._id = id
         Util.display_str_dict(self._fits, 'Fitness')
 
 #먼저 init을 좀 정리하자.attr fit를 딴데서
-    def build_attrs(self, gridpos, numCell):
+    def build_attrs(self, gridpos, numCell, id = 0):
         attrs = {}
         fits = {}
         config = Options()
@@ -26,12 +27,14 @@ class Fitness:
         attrs['number of cells'] = numCell
         max_width = grid_by_col[numCell - 1].x - grid_by_col[0].x + 1
         max_height = grid_by_row[numCell - 1].y - grid_by_row[0].y + 1
+        attrs['id'] = id
         attrs['max width'] = max_width
         attrs['max height'] = max_height
         attrs['real max width'] = max_width *  config.config_options('cell_length')
         real_vertical_length = max_height *  config.config_options('cell_length')
         attrs['real max height'] = real_vertical_length
 
+        fits['id'] = id
         buildingends, lotends, fits['Fulfill Building Line'] = self.fulfill_building_line(grid_by_row, grid_by_col)
         fits['Setbacks'] = 'Failure' if fits['Fulfill Building Line'] == 'Failure' else self.check_setbakcs(buildingends, lotends, grid_by_row, grid_by_col)
         attrs['boundary_walls'], attrs['area'], attrs['perimeter'],f_par, attrs['real faratio'] = self.pa_ratio(numCell)
@@ -49,6 +52,7 @@ class Fitness:
 
         # fits['f(AR)'] = aspect_ratio / optimal_aspect_ratio_value
         fits['f(VSymm)'], fits['f(HSymm)'] = self.get_symmetry()
+        fits['f(CC)'] = len(gridpos.connected_component())
         # fits['daylight hour'] = self.get_daylight_hour(edges, real_vertical_length) # todo edges not set yet
         return attrs, fits, edges
         # Util.printAdjGraph(self.graph) #todo: for Debug
@@ -172,7 +176,7 @@ class Fitness:
     def __str__(self): #get_fitness 에서 print(fitness)를 지워서 이거 필요없음
         fits = self._fits
         config = lambda key : self.config_options(key)
-        strFitness = f'Fitness: \n\
+        strFitness = f'Fitness: {self._id}\n\
          1. Area to length of outer wall = {fits["pa_ratio"]:.4f} \n\
          2. Optimal Ratio({config("optimal_aspect_ratio")[0]}) = {fits["optimal_ratio"]:.4f} (Aspect ratio: {fits.get("aspect_ratio")})\n\
          3. Symmetry: (Vertical: {fits["symmetry"][0]:.2f}, Horizontal:{fits["symmetry"][1]:.2f})\n\
@@ -248,7 +252,7 @@ class Fitness:
         newpos = Util.move_topleft(self._grid.poses)
         bb = Util.bounding_box(newpos)
         width = bb[1]+1; height = bb[3]+1
-        newgrid = Grid(newpos, width, height)
+        newgrid = LandGrid(newpos, width, height)
 
         horz_diff = 0; vertical_diff = 0;
         i = 0; k = height - 1

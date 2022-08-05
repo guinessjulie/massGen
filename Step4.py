@@ -9,6 +9,9 @@ from options import Options
 import math
 from collections import deque
 import time
+from genop import selection, selectTwo, crossover, crossoverTwo
+from datetime import datetime
+from statistics import mean
 
 import matplotlib.pyplot as plt
 
@@ -28,11 +31,62 @@ class GenArchiPlan(unittest.TestCase):
     pop_size = config.config_options('population_size')
     str_settings = config.get_display_settings(width, height)
     # test all the case for massive data for statistics
-    def test_generateNew(self):
+    num_cells = Util.get_num_cells(width, height, config.config_options('required_faratio'))
+    opt_fit = config.config_options('opt_fit')
+
+    def initial_population(self):
+        pops = []
+        while len(pops) < self.pop_size:
+            genes = self.generate_new(self.width, self.height, self.num_cells) # todo: for temp only 0825
+            # genes = self.generate_random()
+            pops.append(genes)
+        return pops
+
+    def get_fitness(self, grid):
+        fitness = Fitness(grid, self.width, self.height, self.num_cells)
+        return fitness
+
+    def test_selection(self):
+        pops = self.initial_population()  # todo : for f(ss) test
+        rows = int( len(pops) / 5)
+        Util.plotGridOnlyRow(pops, rows)
+        for plan in pops:
+            fitness = self.get_fitness(plan)
+            # Util.plotColorMesh(plan, fitness, self.str_settings)
+        fitness_filename = 'fitness' + datetime.now().strftime('%Y%m%d%H%M%S.csv')
+        for i in range(10):
+            pops = self.reproduce(pops, i, fitness_filename)
+
+    def reproduce(self, pops, generation, fitness_filename):
+        mutation_rate = self.config.config_options('mutationrate')
+        parents = selection(pops, self.width, self.height, self.num_cells) #todo this is working version
+        #parents2 = selectTwo(pops, self.width, self.height, self.num_cells)
+        new_pops = []
+        fitnesses = []
+        while len(new_pops) < self.pop_size:
+            child = crossover (parents, self.width, self.height, self.num_cells, mutation_rate, generation)
+            # child = crossoverTwo (parents, self.width, self.height, self.num_cells, mutation_rate)
+
+            new_pops.append(child)
+            # fitness takes whole structure
+            fitness = self.get_fitness(child)
+            print(fitness._fits)
+            fitnesses.append(fitness._fits)
+            # Util.plotColorMesh(child, fitness, self.str_settings)
+        Util.plotGridOnlyRow(new_pops, int( len(pops) / 5)) #todo:  10 for pops= 100
+        fitname = 'f(PAR)'
+        mean_fitness = mean(x.get('f(PAR)') for x in fitnesses)
+        Util.saveCsv(fitness_filename, fitnesses, generation, mean_fitness, fitname)
+
+        return new_pops
+
+    def _test_generateNew(self):
 
         print(self.str_settings)
         num_cells = Util.get_num_cells(self.width, self.height, self.config.config_options('required_faratio'))
         pops = self.create_population_new(self.width, self.height, num_cells, self.pop_size, self.str_settings)  # todo : for f(ss) test
+        selection(pops, self.width, self.height, num_cells)
+        print(child_grid)
 
     def _test_version1(self):
         width = self.config.config_options('width')
@@ -56,9 +110,7 @@ class GenArchiPlan(unittest.TestCase):
                          (4, 2), (0, 3), (1, 3), (2, 3), (3, 3), (4, 3)]
         outline = Util.trace(polygon_tiles)
         print(outline)
-    def get_fitness(self, grid, width, height, num_cells):
-        fitness = Fitness(grid, width, height, num_cells)
-        return fitness
+
         # print(fitness)
         # perimeter = fitness.boundary_length()
         # southSide = fitness.south_view_ratio()
@@ -143,10 +195,21 @@ class GenArchiPlan(unittest.TestCase):
                 adjs_available[Pos(x, y)] = valid_adjs
         return adjs_available
 
+    def generate_random(self):
+        all_pos = {Pos(x,y) for x in range(self.width) for y in range(self.height)}
+        genes = set()
+        for x in range(self.num_cells):
+            not_in_genes = all_pos - genes
+            chromosome = random.choice(list(not_in_genes))
+            genes.add(chromosome)
+        return LandGrid(genes, self.width, self.height)
+
     # random하게 선택하게 해보자.
     def generate_new(self, width, height, num_cells):
-        genes = [Pos(int(width / 2), math.floor(height / 2))]  # todo: genes to genes
+        # genes = list(Util.select_random_position(width, height))
+        genes = [Pos(int(width/2), int(height/2))]
         grid = LandGrid(genes, width, height)
+
         currentIdx = len(genes) - 1
         adjs_occupied = {}
         adjs_available = self.initialize_adjs_available(width, height)
@@ -215,6 +278,7 @@ class GenArchiPlan(unittest.TestCase):
         # print(adjGraph)
 
         return grid
+
     def generate_new_saved_version2(self, width, height, num_cells):
         genes = [Pos(int(width / 2), math.floor(height / 2))]  # todo: genes to genes
         grid = LandGrid(genes, width, height)
@@ -334,6 +398,8 @@ class GenArchiPlan(unittest.TestCase):
         # print(adjGraph)
 
         return grid
+
+
     # build dict for adj occupied pair
     def create_population_new(self, width, height, num_cells, population_size, str_settings):
         pops = []
@@ -348,6 +414,7 @@ class GenArchiPlan(unittest.TestCase):
             if (fitness._fits['f(FSH)'] < 0.1): #todo : print peculiar pattern
                 pops.append(genes)
                 Util.plotColorMesh(genes, fitness, str_settings)
+        return pops
         # Util.plotGridOnlyl(pops) #todo 0511
         # Util.saveCsv('fitnesses.csv', fitnesses)
 
@@ -381,16 +448,18 @@ class GenArchiPlan(unittest.TestCase):
             #         # and fits['pa_ratio'] >= 0.7  :
             pops.append(genes)
             Util.plotColorMesh(genes, fitness, str_settings) # todo change to this whenever needed to print values
-        Util.plotGridOnly(pops) #todo to draw plot
+        Util.plotGridOnlyRow(pops,10) #todo to draw plot
         return pops
 
     def create_mating_pool(self, population, fitness_name):
         pass
 
-    def crossover(self, genes1, genes2):
-        pt = random.randint(0, len(genes1) - 2)
-        child = genes1[:pt] + genes2[pt:]
-        return child
+    # def crossover(self, genes1, genes2):
+    #     pt = random.randint(0, len(genes1) - 2)
+    #     child = genes1[:pt] + genes2[pt:]
+    #     return child
+
+
     #@repeat(10)
     # def test_generate(self):
     #     width = self.config.config_options('width')
