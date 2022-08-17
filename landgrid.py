@@ -21,6 +21,13 @@ class LandGrid:
     def adjacency(self, loc):
         return Util.adjacent_four_way(loc, self.width, self.height)
 
+    def available_adjacency(self, loc):
+        all_adjs = Util.adjacent_four_way(loc, self.width, self.height)
+        return [x for x in all_adjs if x not in self.poses]
+    def occupied_adjacency(self, loc):
+        all_adjs = Util.adjacent_four_way(loc, self.width, self.height)
+        return [x for x in all_adjs if x in self.poses]
+
     def adjacency8(self, loc):
         return Util.adjacent_eight_way(loc, self.width, self.height)
 

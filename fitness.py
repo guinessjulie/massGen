@@ -11,10 +11,11 @@ class Fitness:
         self._width, self._height = width, height,
         self.config_options = lambda ky: config.config_options(ky)
         self._grid= element
-        self.graph = element.buildUndirectedGraph()
+        self.adjacency_graph = element.buildUndirectedGraph()
         self._attrs, self._fits, self.edges = self.build_attrs(element, numCell, id)
         self._id = id
-        Util.display_str_dict(self._fits, 'Fitness')
+        # Util.display_str_dict(self._fits, 'Fitness') #get rid of fitness values on the console
+
 
 #먼저 init을 좀 정리하자.attr fit를 딴데서
     def build_attrs(self, gridpos, numCell, id = 0):
@@ -38,6 +39,9 @@ class Fitness:
         buildingends, lotends, fits['Fulfill Building Line'] = self.fulfill_building_line(grid_by_row, grid_by_col)
         fits['Setbacks'] = 'Failure' if fits['Fulfill Building Line'] == 'Failure' else self.check_setbakcs(buildingends, lotends, grid_by_row, grid_by_col)
         attrs['boundary_walls'], attrs['area'], attrs['perimeter'],f_par, attrs['real faratio'] = self.pa_ratio(numCell)
+        # for debug only
+        if f_par > 1:
+            print(f_par)
         fits['f(BCR)'] = attrs['real faratio'] / self.config_options('required_faratio')
         fits['f(PAR)'] = f_par
         edges = self.get_edges()
@@ -55,8 +59,8 @@ class Fitness:
         fits['f(CC)'] = len(gridpos.connected_component())
         # fits['daylight hour'] = self.get_daylight_hour(edges, real_vertical_length) # todo edges not set yet
         return attrs, fits, edges
-        # Util.printAdjGraph(self.graph) #todo: for Debug
-    
+        # Util.printAdjGraph(self.adjacency_graph) #todo: for Debug
+
     # for Column name renaming 
     def build_attrs2(self, gridpos, numCell):
         attrs = {}
@@ -91,14 +95,13 @@ class Fitness:
         fits['f(VSymm)'], fits['f(HSymm'] = self.get_symmetry()
         # fits['daylight hour'] = self.get_daylight_hour(edges, real_vertical_length) # todo edges not set yet
         return attrs, fits, edges
-        # Util.printAdjGraph(self.graph) #todo: for Debug#
+        # Util.printAdjGraph(self.adjacency_graph) #todo: for Debug#
 
 
 # 따로 떼자 너무 복잡
 
     def fulfill_building_line(self, rows, cols):
         road_side= self.config_options('road_side')[0] #todo f
-        print('road side')
         road_width = self.config_options('road_width')
         cell_length = self.config_options('cell_length')
         setback_requirement = self.config_options('setback_requirement')
@@ -285,19 +288,12 @@ class Fitness:
         return  vertical_symm, horz_symm,
 
     def boundary_length(self, numCell):  # 외피 사이즈
-        # This is the Fitness Function
-        cc = self._grid.connected_component()
-        # Util.printCC(cc) # todo for DEBUG
+        sum_adjs = sum(len(v) for v in self.adjacency_graph.values())  # sum of count adajcencies
+        return numCell*4 - sum_adjs
 
-        insideWall = 0;
-        for cell in self.graph:
-            insideWall += len(self.graph[cell])
-        # return self._attrs['number of cells'] * 4 - insideWall
-        return numCell * 4 - insideWall
-
-
-    def get_aspect_ratio(self, edges):
-        return  len(edges['south']) / len(edges['east'])
+    @staticmethod
+    def get_aspect_ratio(edges):
+        return len(edges['south']) / len(edges['east'])
 
     def get_south_ratio(self, edges):
         cell_length = self.config_options('cell_length')
@@ -329,3 +325,20 @@ class Fitness:
         edges['south'] = [max(col, key=lambda pos: pos.y) for col in cols]
         edges['north'] = [min(col, key=lambda pos: pos.y) for col in cols]
         return edges
+
+
+    def boundary_length_old(self, numCell):  # 외피 사이즈
+        # This is the Fitness Function
+        cc = self._grid.connected_component()
+        # Util.printCC(cc) # todo for DEBUG
+
+        insideWall = 0;
+        for cell in self.adjacency_graph:
+            insideWall += int(len(self.adjacency_graph[cell]) /2)
+        # return self._attrs['number of cells'] * 4 - insideWall
+        v = sum(len(v) for v in self.adjacency_graph.values())
+        print(f'insidewall = {insideWall}, sum of adjacency graph values: {v}')
+        previously_returned = numCell * 4 - insideWall
+        newcalc = numCell*4 - v
+        print(f'numCell*4-insideWall:={previously_returned}, new calc : {newcalc}')
+        return newcalc

@@ -453,7 +453,7 @@ class GenArchiPlan(unittest.TestCase):
             surr = grid.adjacency(genes[pickIdx])
             pick = random.sample(surr, 1) # todo: 여기서 기존에 선택했던 걸 선택하면 안된다
             genes = genes + pick
-        # graph = UndirectedGraph(genes, width, height)
+        # adjacency_graph = UndirectedGraph(genes, width, height)
 
         print('Grid')
         print(LandGrid(genes, width, height), '\n')

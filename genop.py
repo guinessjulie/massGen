@@ -6,15 +6,48 @@ from collections import Counter
 from statistics import mean
 import numpy as np
 import datetime
+
+# change: normalized_fitness를 calcFitness로 옮겼음
+def selection(pops, width, height, num_cells, fit_criteria = 'f(PAR)'):
+    attr, fits, edges, fitnesses = calcFitness(pops,width, height, num_cells)
+    normalized_fits = normalize_fitnesses(fitnesses) #todo: let's not do that
+    matingPool = []
+    tempMatingPool_originalId = [] # to trace initial pop
+    fits_raw = [x.get(fit_criteria) for x in fitnesses]
+    # norm_fits = Util.normalize_0to1(fits_raw)
+    selected_idx = []
+    while len(matingPool) <= len(pops) * 20:
+        # for i, fitness in enumerate(fitnesses): #todo testing
+        # for i, fitness  in enumerate(normalized_fits[fit_criteria]):
+        for i, fitness in enumerate([x.get('f(PAR)') for x in fitnesses]):
+
+            p = random.random()
+            fit = fitness
+            if p < fit:
+                matingPool.append(pops[i])
+                selected_idx.append(i)
+    return matingPool
+
+
 def calcFitness(pops, width, height, num_cells):
     fitnesses = []
     for i, individual in enumerate(pops):
         fitness = Fitness(individual, width, height, num_cells, i)
         fitnesses.append(fitness._fits)
         attr, fits, edges = fitness.build_attrs(individual, num_cells, i)
-
+    # fitnesses = update_fitness(fitnesses) # todo: convert to normalized fitnesses=> the problem is that relatively very small number can become max 1.0 becuase it doesn't know the theoritical max value
     return attr, fits, edges, fitnesses
 
+def update_fitness(fitnesses):
+    selected_fit = selected_fitness_list(fitnesses, 'f(PAR)')
+    #todo: convert to normalized finesses
+    fpar = [fit['f(PAR)'] for fit in fitnesses]
+    normed_fpar  = Util.normalize_0to1([fit['f(PAR)'] for fit in fitnesses])
+    i = 0
+    for v in fitnesses:
+        v['f(PAR)'] = normed_fpar[i]
+        i += 1
+    return fitnesses
 
 def selected_fitness_list(fitnesses, obj_fit):
     selected_fits =  [fit[obj_fit] for fit in fitnesses]
@@ -29,6 +62,7 @@ def normalize_fitnesses(fitnesses):
     normalized_fits['f(HSymm)'] = selected_fitness_list(fitnesses,'f(HSymm)')
     normalized_fits['f(AR)'] = selected_fitness_list(fitnesses,'f(AR)')
     return normalized_fits
+
 
 def selectTwo(pops, width, height, num_cells, fit_criteria='f(PAR)'):
     attr, fits, edges, fitnesses = calcFitness(pops, width, height, num_cells)
@@ -125,32 +159,26 @@ def selectOne(pops, width, height, num_cells, fit_criteria = 'f(PAR)'):
 
     return newpop
 
-def selection(pops, width, height, num_cells, fit_criteria = 'f(PAR)'):
-    attr, fits, edges, fitnesses = calcFitness(pops,width, height, num_cells)
-    normalized_fits = normalize_fitnesses(fitnesses)
-    matingPool = []
-    tempMatingPool_originalId = [] # to trace initial pop
-    fits_raw = [x.get(fit_criteria) for x in fitnesses]
-    # norm_fits = Util.normalize_0to1(fits_raw)
-    selected_idx = []
-    while len(matingPool) <= len(pops) * 20:
-        # for i, fitness in enumerate(fitnesses): #todo testing
-        for i, fitness  in enumerate(normalized_fits[fit_criteria]):
-            p = random.random()
-            fit = fitness
-            if p < fit:
-                matingPool.append(pops[i])
-                selected_idx.append(i)
-    parent_index_count = Counter(selected_idx)
 
-
-    return matingPool
 
 def get_unassigned(genes, width, height):
     background = [Pos(x, y) for x in range(width) for y in range(height)]
     return list(set(background)-set(genes))
 
 def mutate(genes, width, height, rate = 0.1):
+    if(random.random() < rate):
+        fullset = {Pos(x,y) for x in range(width) for y in range(height)}
+        outsides = list(fullset - set(genes))
+        bound_adjacent = Util.bound_adjacent(genes, width, height)
+        exchange = random.choice(bound_adjacent)
+        # exchange = random.choice(outsides)
+        i = random.choice(range(len(genes)))
+        genes[i] = exchange
+    return genes
+
+
+
+def mutate_old(genes, width, height, rate = 0.1):
     loc = random.randint(0, len(genes)-1)
     mut_axis = random.randint(0, 1)
     unassigned_genes = get_unassigned(genes, width, height)
@@ -173,13 +201,36 @@ def mutate(genes, width, height, rate = 0.1):
             genes[loc] = mutated
     return genes
 
+'''
+교차의 새로운 전략: 교차위치까지는 첫번째 부모에서 가져오고, 교차 이후는 두번째 부모에서 가져오는데 만일 겹치는 경우 0부터 다시시작
+'''
+def crossoverFour(mating_pool, width, height, gene_size, mut_rate = 0.2):
+    cp = random.randint(0,gene_size-1) #crosspoint
+    # 부모 선택
+    p1 = mating_pool[random.randint(0, len(mating_pool) - 1)].poses
+    p2 = mating_pool[random.randint(0, len(mating_pool) - 1)].poses
+
+    # candidate
+    c1 = p1[:cp] #반쪽
+    c2 = p2[cp:]
+    child_genes = c1+c2
+    i = 0
+    while len(set(child_genes)) < gene_size:
+        child_genes.append(p2[i])
+        i += 1
+
+    child_genes = list(set(child_genes))
+
+    return child_genes
+
+
 def crossoverTwo(pops, width, height, gene_size, mut_rate = 0.1):
     crosspoints = []
     p1 = pops[random.randint(0, len(pops)-1)]
     p2 = pops[random.randint(0, len(pops)-1)]
-
-    print(f'p1:\n {p1}')
-    print(f'2:\n {p2}')
+    #
+    # print(f'p1:\n {p1}')
+    # print(f'2:\n {p2}')
 
     crosspoints = set(p1.poses).intersection(set(p2.poses))
     num_lack = gene_size - len(crosspoints)
@@ -194,7 +245,7 @@ def crossoverTwo(pops, width, height, gene_size, mut_rate = 0.1):
         if diff2:
             child_genes.append(diff2.pop())
     child = LandGrid(child_genes, width, height)
-    child.display_poses()
+    # child.display_poses()
     return child
 
 
@@ -216,32 +267,72 @@ def crossoverThree(pops, width, height,gene_size, mut_rate=0.1):
             if p1[i] == p2[i]:
                 crosspoints.append(i)
 
-    print(f'p1:, {p1}')
-    LandP1 = LandGrid(p1, width, height)
-    LandP1.display_poses()
-
-    LandP2 = LandGrid(p2, width, height)
-    print(f'parent2: {p2}')
-    LandP2.display_poses()
+    # print(f'p1:, {p1}')
+    # LandP1 = LandGrid(p1, width, height)
+    # LandP1.display_poses()
+    #
+    # LandP2 = LandGrid(p2, width, height)
+    # print(f'parent2: {p2}')
+    # LandP2.display_poses()
 
     cross_pt_loc = random.randint(0, len(crosspoints)-1)
     pt = crosspoints[cross_pt_loc]
     
     child_genes = p2[:pt] + p1[pt:]
-    print(f'child:{child_genes}')
+    # print(f'child:{child_genes}')
     child = LandGrid(child_genes, width, height)
-    child.display_poses()
+    # child.display_poses()
     num_crosspoints_exists += 1
 
     child.display_poses()
     return child
 
+def crossover_random_backup(pops, width, height, gene_size):
+    genes1 = pops[random.randint(0, len(pops)-1)].poses
+    genes2 = pops[random.randint(0, len(pops)-1)].poses
+    middle_point = int(gene_size/2)
+    child_genes = genes1[:middle_point] + genes2[middle_point:]
+    return LandGrid(child_genes, width, height)
+
+# 좀 더 단순화시켜본다.
 def crossover_random(pops, width, height, gene_size):
-    genes1 = pops[random.randint(0, len(pops)-1)]
-    genes2 = pops[random.randint(0, len(pops)-1)]
+    genes1 = pops[random.randint(1, len(pops)-1)].poses
+    genes2 = pops[random.randint(1, len(pops)-1)].poses
+    middle_point = int(gene_size/2)
+    child_genes = genes1[:middle_point]
+    candidates = Util.bound_adjacent(child_genes, width, height)
+    overwraps = list(set(candidates).intersection(set(genes2)))
+    needed_len = gene_size - len(child_genes)
+    child_genes += overwraps[:needed_len]
+    while (len(child_genes) < gene_size):
+        boundary_adjs = Util.bound_adjacent(child_genes, width, height)
+        needed_len = gene_size - len(set(child_genes))
+        child_genes += random.sample(boundary_adjs, min(needed_len, len(boundary_adjs)))
+        child_genes = list(set(child_genes))
+    return child_genes
+
+
+def crossover_random_0816(pops, width, height, gene_size):
+    genes1 = pops[random.randint(1, len(pops)-1)].poses
+    genes2 = pops[random.randint(1, len(pops)-1)].poses
+    middle_point = int(gene_size/2)
+    child_genes = genes1[:middle_point]
+    candidates = Util.bound_adjacent(child_genes, width, height)
+    p2_rest = genes2[middle_point:]
+    overwraps = list(set(candidates).intersection(set(genes2)))
+    needed_len = len(p2_rest)
+    child_genes += random.sample(overwraps, min(needed_len, len(overwraps)))
+    if (len(set(child_genes)) < gene_size):
+        needed_len = gene_size - len(set(child_genes))
+        child_genes += random.sample(candidates,  min(needed_len, len(candidates)))
+    while len(set(child_genes)) < gene_size:
+        new_bound_adjs = Util.bound_adjacent(child_genes, width, height)
+        child_genes += random.sample(new_bound_adjs, min(gene_size-len(set(child_genes)), len(new_bound_adjs)))
+    child_genes = list(set(child_genes))
+    return child_genes
 
 # 교차하는 위치에서
-def crossover(pops, width, height,gene_size, mut_rate=0.1, generation=0):
+def crossover_overwrap(pops, width, height,gene_size, mut_rate=0.1, generation=0):
 
     index1 = random.randint(0,len(pops)-1)
     index2 = random.randint(0,len(pops)-1)
@@ -273,7 +364,7 @@ def crossover(pops, width, height,gene_size, mut_rate=0.1, generation=0):
 
 
     else: # there is no 같은 위치에서 겹치는 셀이 없을 때
-        print('no-same-cells-same-loc')
+        # print('no-same-cells-same-loc')
         genes1 = pops[index1].sorted_by_col()
         genes2 = pops[index2].sorted_by_col()
         while not set(genes1).intersection(set(genes2)): #repeat if intersection is empty
@@ -293,7 +384,7 @@ def crossover(pops, width, height,gene_size, mut_rate=0.1, generation=0):
         child_genes += list(set(adjs_overwrap_p1 + adjs_overwrap_p2))
 
         while len(child_genes) < gene_size:
-            if not adjs_overwrap_p1:
+            if not adjs_overwrap_p1 or adjs_overwrap_p2:
                 print('list is empty')
             first = adjs_overwrap_p1.pop(0)
             adjs_first = [x for x in Util.adjacent_four_way(first,width, height) if x in genes1 and x not in child_genes ]
@@ -315,7 +406,7 @@ def crossover(pops, width, height,gene_size, mut_rate=0.1, generation=0):
             child = pops[index2] #todo mixed up with child and child_genes
             num_more_than_one_component += 1
 
-    print_parents(genes1, genes2, child, index1, index2, width, height)
+    # print_parents(genes1, genes2, child, index1, index2, width, height)
     return child
 
 def fillup_genes(cur_genes, gene_size, width, height):
@@ -339,23 +430,23 @@ def crossover_org(pops, width, height,gene_size, mut_rate=0.1):
     pt = random.randint(0, gene_size - 2)
 
     genes1 = pops[index1].sorted_by_col()
-    print(f'parent1:, {genes1 }')
     p1 = LandGrid(genes1, width, height)
-    p1.display_poses()
+    # print(f'parent1:, {genes1 }')
+    # p1.display_poses()
 
     genes2 = pops[index2].sorted_by_col()
     p2 = LandGrid(genes2, width, height)
-    print(f'parent2: {genes2}')
-    p2.display_poses()
+    # print(f'parent2: {genes2}')
+    # p2.display_poses()
 
     parent1_last_pos = pops[index1].poses[pt-1]
     adjs = pops[index1].adjacency(parent1_last_pos)
-    print(adjs)
+    # print(adjs)
 
     child_genes = genes1[:pt] + genes2[pt:]
     child = LandGrid(child_genes, width, height).sorted_by_col()
-    print(f'child:{child_genes}')
-    child.display_poses()
+    # print(f'child:{child_genes}')
+    # child.display_poses()
 
     if len(child_genes) != gene_size:
         print(f'Failed to crossover: size of the child_gene {len(child_genes)} does not match gene_size {gene_size}')
@@ -393,6 +484,8 @@ def crossover_org(pops, width, height,gene_size, mut_rate=0.1):
     #         pops.append(genes)
     #         Util.plotColorMesh(genes, fitness, str_settings)
     # return pops
+
+
 
 def print_parents(genes1, genes2, child, index1, index2, width, height):
     p1 = LandGrid(genes1, width, height)

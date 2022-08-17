@@ -29,8 +29,6 @@ class Pos:
         return (self.x, self.y)
 
 
-
-
 def loadIniFile(inifile):
     options = configparser.ConfigParser()
     options.read(inifile)
@@ -136,15 +134,22 @@ class Util:
             axs[plotcol, plotrow].pcolormesh(mat, cmap='gray_r', alpha=0.7, edgecolor='silver', linewidth=0)
             axs[plotcol, plotrow].set_xticks([])
             axs[plotcol, plotrow].set_yticks([])
-            axs[plotcol, plotrow].text(0,20, fit_txt)
+            # axs[plotcol, plotrow].text(0,20, fit_txt)
             axs[plotcol, plotrow].set_aspect(1.0)
             axs[plotcol, plotrow].set_title(str(i))
             i += 1
 
-
         filename = './results/conditional_'+ datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")[4:]
+        fig.suptitle(fit_txt)
+        plt.tight_layout()
         plt.savefig(filename)
         plt.show()
+
+    def plotGridBatch(pops, numfig, rows):
+        num_sheet = int(len(pops) / numfig)
+        fig_text = 'Initial Population'
+        for i in range(num_sheet):
+            Util.plotGridOnlyRow(pops[i*numfig:i*numfig+numfig], rows, fig_text+str(i))
 
     def plotGridOnly(pops):
         plotrows = 5
@@ -222,11 +227,10 @@ class Util:
         init_row = random.randint(0, height - 1)
         init_col = random.randint(0, width - 1)
         genes = [ Pos(init_col, init_row)]
-        print(genes)
         return genes
 
     @staticmethod
-    def saveCsv(filename, fits, generation=0, fit_value=0, fitname='fitness'):
+    def saveFitnessCsv(filename, fits, generation=0, fit_value=0, fitname='fitness'):
         keys = fits[0].keys()
         with open(filename, 'a', newline='') as fp:
                 dict_writer = csv.DictWriter(fp, keys)
@@ -235,7 +239,15 @@ class Util:
 
         with open(filename, 'a', newline='') as fp:
             writer = csv.writer(fp)
-            writer.writerow(['fitname', fit_value])
+            writer.writerow([fitname, fit_value])
+
+    @staticmethod
+    def saveStat(filename, stats):
+        keys = stats[0].keys()
+        with open(filename, 'a', newline='') as fp:
+            dict_writer =csv.DictWriter(fp, keys)
+            dict_writer.writeheader()
+            dict_writer.writerows(stats)
 
     @staticmethod
     def dsf_util(visited, graph, node, components):

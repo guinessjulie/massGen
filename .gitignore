@@ -6,3 +6,4 @@ results/
 .Step2.py
 *.png
 ./results/*.png
+*.csv

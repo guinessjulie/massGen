@@ -9,7 +9,7 @@ from options import Options
 import math
 from collections import deque
 import time
-from genop import selection, selectTwo, crossover, crossoverTwo
+from genop import selection, selectTwo, crossover_overwrap, crossoverTwo
 from datetime import datetime
 from statistics import mean
 
@@ -59,24 +59,24 @@ class GenArchiPlan(unittest.TestCase):
 
     def reproduce(self, pops, generation, fitness_filename):
         mutation_rate = self.config.config_options('mutationrate')
-        parents = selection(pops, self.width, self.height, self.num_cells) #todo this is working version
-        #parents2 = selectTwo(pops, self.width, self.height, self.num_cells)
+        mating_pool = selection(pops, self.width, self.height, self.num_cells) #todo this is working version
+        #mating_pool2 = selectTwo(pops, self.width, self.height, self.num_cells)
         new_pops = []
         fitnesses = []
         while len(new_pops) < self.pop_size:
-            child = crossover (parents, self.width, self.height, self.num_cells, mutation_rate, generation)
-            # child = crossoverTwo (parents, self.width, self.height, self.num_cells, mutation_rate)
+            child = crossover_overwrap(mating_pool, self.width, self.height, self.num_cells, mutation_rate, generation)
+            # child = crossoverTwo (mating_pool, self.width, self.height, self.num_cells, mutation_rate)
 
             new_pops.append(child)
             # fitness takes whole structure
             fitness = self.get_fitness(child)
-            print(fitness._fits)
+            # print(fitness._fits) #todo: use whenever you want to printout fitness value debug
             fitnesses.append(fitness._fits)
             # Util.plotColorMesh(child, fitness, self.str_settings)
         Util.plotGridOnlyRow(new_pops, int( len(pops) / 5)) #todo:  10 for pops= 100
         fitname = 'f(PAR)'
         mean_fitness = mean(x.get('f(PAR)') for x in fitnesses)
-        Util.saveCsv(fitness_filename, fitnesses, generation, mean_fitness, fitname)
+        Util.saveFitnessCsv(fitness_filename, fitnesses, generation, mean_fitness, fitname)
 
         return new_pops
 
@@ -265,12 +265,12 @@ class GenArchiPlan(unittest.TestCase):
             # pickedIdx = genes.index(genes[picked_gene])
             # pickedIdx = random.choice(sample_genes)
             # adjs_available[currentIdx].add()
-        print(f'elapsed time: {time.time()-start}')
+        # print(f'elapsed time: {time.time()-start}')
         grid.update_positions(genes)
         # print('grid\n',grid)
         # # todo: finish local functions of grid.py moving from fitness all thest
-        print('\nCreated Shape')
-        print(LandGrid(genes, width, height), '\n')  # Final Shape
+        # print('\nCreated Shape')
+        # print(LandGrid(genes, width, height), '\n')  # Final Shape
 
         # print('grouped by row:' , grid.grouped_by_row())
         # print('grouped by col:' , grid.grouped_by_col())
@@ -522,7 +522,7 @@ class GenArchiPlan(unittest.TestCase):
             surr = grid.adjacency(genes[pickIdx])
             pick = random.sample(surr, 1) # todo: 여기서 기존에 선택했던 걸 선택하면 안된다
             genes = genes + pick
-        # graph = UndirectedGraph(genes, width, height)
+        # adjacency_graph = UndirectedGraph(genes, width, height)
 
         print('Grid')
         print(LandGrid(genes, width, height), '\n')

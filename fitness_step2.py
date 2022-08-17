@@ -211,10 +211,10 @@ class Fitness:
     # def connected_component(self): #todo moving to grid
     #     visited = {}
     #     cc = []
-    #     for node in self.graph:
+    #     for node in self.adjacency_graph:
     #         visited[node] = False
-    #     for nodeId, node in enumerate(self.graph):
+    #     for nodeId, node in enumerate(self.adjacency_graph):
     #         if visited[node] == False:
     #             temp = []  # dsf algorithm
-    #             cc.append(Util.dsf_util(visited, self.graph, node, temp))
+    #             cc.append(Util.dsf_util(visited, self.adjacency_graph, node, temp))
     #     return cc
