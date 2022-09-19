@@ -1,19 +1,13 @@
 from util import Util, Pos
 from collections import Counter
-from fitness import Fitness
-
 class LandGrid:
-    def __init__(self, poses, width, height, pop_id=0, p1=None, p2=None):
+    def __init__(self, poses, width, height):
         self.grid = [['.']*width for _ in range(height)]
         self.poses = poses
         self.width = width
         self.height = height
         for p in poses:
             self.grid[p.y][p.x] = 'X'
-        self.pop_id = pop_id
-        self.fitness = Fitness(self.poses, width, height, len(self.poses), pop_id)
-        self.p1 = p1
-        self.p2 = p2
 
     def init_grid(self):
         self.grid = [['.']* self.width for _ in range(self.height)]
@@ -91,4 +85,15 @@ class LandGrid:
 
         return adjGraph
 
+    def connected_component(self):
+        visited = {}
+        cc = []
+        graph = self.buildUndirectedGraph()
+        for node in graph:
+            visited[node] = False
+        for nodeId, node in enumerate(graph):
+            if visited[node] == False:
+                temp = []  # dsf algorithm
+                cc.append(Util.dsf_util(visited, graph, node, temp))
+        return cc
 

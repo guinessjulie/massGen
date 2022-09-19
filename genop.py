@@ -5,10 +5,32 @@ from landgrid import LandGrid
 from collections import Counter
 from statistics import mean
 import numpy as np
+import math
 import datetime
+
+
+def selected_fitnesses(pops, fit_criteria):
+    return [ fitness._fits.get(fit_criteria) for fitness in [ landgrid.fitness for landgrid in pops]]
 
 # change: normalized_fitness를 calcFitness로 옮겼음
 def selection(pops, width, height, num_cells, fit_criteria = 'f(PAR)'):
+    matingPool = []
+    tempMatingPool_originalId = [] # to trace initial pop
+
+    fitnesses = selected_fitnesses(pops, fit_criteria)
+    # norm_fits = Util.normalize_0to1(fits_raw)
+    selected_idx = []
+    while len(matingPool) <= (len(pops) * 20):
+        # for i, fitness in enumerate(fitnesses): #todo testing
+        # for i, fitness  in enumerate(normalized_fits[fit_criteria]):
+        for i, fitness in enumerate(fitnesses):
+            p = random.random()
+            if p < fitness:
+                matingPool.append(pops[i])
+                selected_idx.append(i)
+    return matingPool
+
+def selection_save(pops, width, height, num_cells, fit_criteria = 'f(PAR)'):
     attr, fits, edges, fitnesses = calcFitness(pops,width, height, num_cells)
     normalized_fits = normalize_fitnesses(fitnesses) #todo: let's not do that
     matingPool = []
@@ -166,17 +188,36 @@ def get_unassigned(genes, width, height):
     return list(set(background)-set(genes))
 
 def mutate(genes, width, height, rate = 0.1):
-    if(random.random() < rate):
+    if(random.random() >= rate):
+        return genes
+    else:
+        newgene = genes.copy()
         fullset = {Pos(x,y) for x in range(width) for y in range(height)}
         outsides = list(fullset - set(genes))
-        bound_adjacent = Util.bound_adjacent(genes, width, height)
+        x = random.choice(range(len(genes)))
+        bound_adjacent = Util.bound_adjacent( genes[:x] + genes[x+1:], width, height)
         exchange = random.choice(bound_adjacent)
-        # exchange = random.choice(outsides)
-        i = random.choice(range(len(genes)))
-        genes[i] = exchange
-    return genes
+        newgene[x] = exchange
+        if len(Util.connected_component(genes, width, height)) > 1:
+            print('1 more connected component in mutation')
+    return newgene
 
-
+# mutation is occur only when mutated solution is better
+def mutate0915(genes, width, height, rate=0.1, mutate_option='improvement', fit_option='f(PAR)'):
+    if(random.random() >= rate):
+        return genes
+    else:
+        newgene = genes.copy()
+        fullset = {Pos(x,y) for x in range(width) for y in range(height)}
+        outsides = list(fullset - set(genes))
+        x = random.choice(range(len(genes)))
+        bound_adjacent = Util.bound_adjacent( genes[:x] + genes[x+1:], width, height)
+        exchange = random.choice(bound_adjacent)
+        newgene[x] = exchange
+        numcell = len(genes)
+        if mutate_option == 'improvement': #if improvement keep newgene unchanged
+            newgene =  newgene if Fitness(newgene, width, height,numcell )._fits[fit_option] > Fitness(genes, width, height, numcell)._fits[fit_option] else genes
+        return newgene
 
 def mutate_old(genes, width, height, rate = 0.1):
     loc = random.randint(0, len(genes)-1)
@@ -295,9 +336,11 @@ def crossover_random_backup(pops, width, height, gene_size):
     return LandGrid(child_genes, width, height)
 
 # 좀 더 단순화시켜본다.
-def crossover_random(pops, width, height, gene_size):
-    genes1 = pops[random.randint(1, len(pops)-1)].poses
-    genes2 = pops[random.randint(1, len(pops)-1)].poses
+def crossover_random_save0821(pops, width, height, gene_size):
+    rand1 = random.randint(1, len(pops) - 1)
+    rand2 = random.randint(1, len(pops)-1)
+    genes1 = pops[rand1].poses
+    genes2 = pops[rand2].poses
     middle_point = int(gene_size/2)
     child_genes = genes1[:middle_point]
     candidates = Util.bound_adjacent(child_genes, width, height)
@@ -309,7 +352,263 @@ def crossover_random(pops, width, height, gene_size):
         needed_len = gene_size - len(set(child_genes))
         child_genes += random.sample(boundary_adjs, min(needed_len, len(boundary_adjs)))
         child_genes = list(set(child_genes))
-    return child_genes
+
+    return child_genes, pops[rand1].pop_id, pops[rand2].pop_id
+
+#get better solution
+def crossover_random(pops, width, height, gene_size):
+    rand1 = random.randint(1, len(pops) - 1)
+    rand2 = random.randint(1, len(pops)-1)
+    genes1 = pops[rand1].poses
+    genes2 = pops[rand2].poses
+    middle_point = int(gene_size/2)
+    child_genes = genes1[:middle_point]
+    candidates = Util.bound_adjacent(child_genes, width, height)
+    overwraps = list(set(candidates).intersection(set(genes2)))
+    needed_len = gene_size - len(child_genes)
+    child_genes += overwraps[:needed_len]
+    while (len(child_genes) < gene_size):
+        boundary_adjs = Util.bound_adjacent(child_genes, width, height)
+        needed_len = gene_size - len(set(child_genes))
+        child_genes += random.sample(boundary_adjs, min(needed_len, len(boundary_adjs)))
+        child_genes = list(set(child_genes))
+
+    return child_genes, pops[rand1].pop_id, pops[rand2].pop_id
+
+def init_crossover_fsh(mating_pool, width, height, gene_size):
+    parent1 = random.randint(1, len(mating_pool) - 1)
+    parent2 = random.randint(1, len(mating_pool)-1)
+    genes1 = mating_pool[parent1].poses.copy()
+    genes2 = mating_pool[parent2].poses.copy()
+    genes = []
+    g1 = genes1.pop()
+    genes.append(g1)
+    adjs_in_genes2 = list(set(Util.adjacent_four_way(g1,width, height)).intersection(set(genes2)))
+    samplesize = min(gene_size - len(genes), len(adjs_in_genes2))
+    genes.extend(random.sample(adjs_in_genes2, samplesize))
+    genes2 = list(set(genes2).difference(set(genes)))
+
+    while (len(genes) < gene_size):
+        adjs_in_genes2 = list(set(Util.bound_adjacent(genes, width, height)).intersection(set(genes2)))
+        samplesize = min(gene_size - len(genes), len(adjs_in_genes2))
+        genes.extend(random.sample(adjs_in_genes2, samplesize))
+
+        genes2 = list(set(genes2).difference(set(genes)))
+        adjs_in_genes1 = list(set(Util.bound_adjacent(genes, width, height)).intersection(set(genes1)))
+        samplesize = min(gene_size - len(genes), len(adjs_in_genes1))
+        genes.extend(random.sample(adjs_in_genes1, samplesize))
+        genes1 = list(set(genes1).difference(set(genes)))
+
+
+    return  genes, parent1, parent2,genes1, genes2
+
+def init_crossover(mating_pool, width, height, gene_size):
+    parent1 = random.randint(1, len(mating_pool) - 1)
+    parent2 = random.randint(1, len(mating_pool)-1)
+    genes1 = mating_pool[parent1].poses
+    genes2 = mating_pool[parent2].poses
+    set1 = set(genes1)
+    set2 = set(genes2)
+
+    childset = set1.intersection(set2)
+    if childset:
+        childgenes = list(childset) # childgenes
+    else :
+        bounds1 = set2.intersection(set(Util.bound_adjacent(list(set1), width, height)))
+        bounds2 = set1.intersection(set(Util.bound_adjacent(list(set2), width, height)))
+        cross_boundary = bounds1.union(bounds2)
+        if cross_boundary:
+            childgenes =  list(cross_boundary)
+        else:
+            common_bound = set(Util.bound_adjacent(genes1, width, height)).intersection(set(Util.bound_adjacent(genes2, width, height)))
+            if common_bound:
+                childgenes = list(common_bound)
+            else:
+                while not common_bound:
+                    # extending common_bound
+                    set1 = set(Util.bound_adjacent(list(set1), width, height)).union(set1)
+                    set2 = set(Util.bound_adjacent(list(set2), width, height)).union(set2)
+                    common_bound =  list(set1.intersection(set2))
+                childgenes = common_bound
+
+    return childgenes, parent1, parent2,genes1, genes2
+
+def crossover_b(mating_pool, width, height, gene_size):
+
+    parent1, parent2 = random.choices(range(len(mating_pool)), k=2)
+    while mating_pool[parent1].pop_id == mating_pool[parent2].pop_id:
+        parent2 = random.choice(range(len(mating_pool)))
+    genes1 = mating_pool[parent1].poses.copy()
+    genes2 = mating_pool[parent2].poses.copy()
+    genes = []
+    g1 = genes1.pop()
+    genes.append(g1)
+    adjs_in_genes2 = list(set(Util.adjacent_four_way(g1, width, height)).intersection(set(genes2)))
+    samplesize = min(gene_size - len(genes), len(adjs_in_genes2))
+    genes.extend(random.sample(adjs_in_genes2, samplesize))
+    genes2 = list(set(genes2).difference(set(genes)))
+
+    # todo: let's do it one by one
+    i = 0
+    while (len(genes) < gene_size):
+        if(i>gene_size):
+            print('infinite loop')
+        genes2 = list(set(genes2).difference(set(genes)))
+        adjs_in_genes1 = list(set(Util.bound_adjacent(genes, width, height)).intersection(set(genes1)))
+
+        if adjs_in_genes1 :
+            genes.append(random.choice(adjs_in_genes1))
+            genes1 = list(set(genes1).difference(set(genes)))
+
+        adjs_in_genes2 = list(set(Util.bound_adjacent(genes, width, height)).intersection(set(genes2)))
+        if adjs_in_genes2:
+            genes.append(random.choice(adjs_in_genes2))
+        i+=1
+
+    return genes, mating_pool[parent1].pop_id, mating_pool[parent2].pop_id
+
+def crossover_c(mating_pool, width, height, gene_size):
+
+    # todo: testing 0913
+    parent1, parent2 = random.choices(range(len(mating_pool)), k=2)
+    while mating_pool[parent1].pop_id == mating_pool[parent2].pop_id:
+        parent2 = random.choice(range(len(mating_pool)))
+
+    landgrid1 = mating_pool[parent1]
+    landgrid2 = mating_pool[parent2]
+    pop_id1 = landgrid1.pop_id
+    pop_id2 = landgrid2.pop_id
+    genes1 =landgrid1.poses.copy()
+    genes2 = landgrid2.poses.copy()
+
+    # cc1 = landgrid1.fitness._fits['f(CC)']
+    # cc2 = landgrid2.fitness._fits['f(CC)']
+    # if(cc1 > 1):
+    #     return genes2, pop_id1, pop_id1
+    # if(cc2 > 1):
+    #     return genes1, pop_id2, pop_id2
+    genes = []
+    init_len = random.randint(1, int(gene_size/2)-1)
+    genes = genes1[:init_len]
+    genes1 = genes1[init_len:]
+    # genes.append(g1)
+    adjs_in_genes2 = list(set(Util.bound_adjacent(genes, width, height)).intersection(set(genes2)))
+    samplesize = min(gene_size - len(genes) , len(adjs_in_genes2))
+    genes.extend(random.sample(adjs_in_genes2, samplesize))
+    genes2 = list(set(genes2).difference(set(genes)))
+
+    i = 0
+    while (len(genes) < gene_size):
+        if(i>gene_size):
+            print('still infinite loop')
+            return
+        genes2 = list(set(genes2).difference(set(genes)))
+        adjs_in_genes1 = list(set(Util.bound_adjacent(genes, width, height)).intersection(set(genes1)))
+        samplesize = min(gene_size - len(genes), len(adjs_in_genes1))
+        # genes.extend(random.sample(adjs_in_genes1, samplesize))
+        if adjs_in_genes1 :
+            genes.append(random.choice(adjs_in_genes1))
+            genes1 = list(set(genes1).difference(set(genes)))
+
+        if len(genes) < gene_size:
+            adjs_in_genes2 = list(set(Util.bound_adjacent(genes, width, height)).intersection(set(genes2)))
+            samplesize = min(gene_size - len(genes), len(adjs_in_genes2))
+            # genes.extend(random.sample(adjs_in_genes2, samplesize))
+            if adjs_in_genes2:
+                genes.append(random.choice(adjs_in_genes2))
+            i+=1
+
+    return genes, pop_id1, pop_id2
+
+def crossover_a(mating_pool, width, height, gene_size):
+    childgenes, parent1, parent2,genes1, genes2 = init_crossover(mating_pool, width, height, gene_size)
+    if(len(childgenes) > gene_size):
+        print('gene_size is over')
+    p1diff = list(set(genes1) - set(childgenes))
+    p2diff = list(set(genes2) - set(childgenes))
+    p1adj = set(Util.bound_adjacent(childgenes, width, height)).intersection(set(p1diff))
+    p2adj = set(Util.bound_adjacent(childgenes, width, height)).intersection(set(p2diff))
+    adjs = p1adj.union(p2adj)
+    if(len(adjs) <  min(gene_size - len(childgenes), len(adjs)) or len(adjs) < 0):
+        print('here is the error')
+    new_genes = random.sample(adjs, min(gene_size - len(childgenes), len(adjs)))
+
+    childgenes.extend(new_genes)
+    while len(childgenes) < gene_size:
+        new_adjacent = Util.bound_adjacent(childgenes, width, height)
+        new_genes = random.sample(new_adjacent, min(gene_size - len(childgenes), len(new_adjacent)))
+        childgenes.extend(new_genes)
+    return childgenes,  mating_pool[parent1].pop_id,  mating_pool[parent2].pop_id
+
+
+#get better solution
+def crossover_better_saved(mating_pool, width, height, gene_size):
+    # rand1 = random.randint(1, len(mating_pool) - 1)
+    # rand2 = random.randint(1, len(mating_pool)-1)
+    # genes1 = mating_pool[rand1].poses
+    # genes2 = mating_pool[rand2].poses
+    # set1 = set(genes1)
+    # set2 = set(genes2)
+    childgenes = init_crossover(mating_pool, width, height, gene_size)
+
+    #todo start coding new
+    # childset = set1.intersection(set2)
+    # childgenes = list(childset)
+
+    if not childgenes: # 두 개체가 겹치지 않을 경우
+
+        common_bound = set(Util.bound_adjacent(genes1,width, height)).intersection(set(Util.bound_adjacent(genes2, width, height)))
+        childgenes = list(common_bound.copy())
+        childset = set(Util.bound_adjacent(list(common_bound), width, height)).intersection(set1.union(set2))
+        childgenes.extend(list(childset))
+
+        while len(childgenes) < gene_size:
+            g1_g2_adj = set(Util.bound_adjacent(genes1, width, height)).intersection(set(genes2))
+            g2_g1_adj = set(Util.bound_adjacent(genes2, width, height)).intersection(set(genes1))
+            adjacent_bound = list(g1_g2_adj.union(g2_g1_adj))
+            samplesize = min(len(adjacent_bound), gene_size - len(childgenes))
+            if not samplesize : bounds = []
+            while not bounds:
+                extending = list(set(Util.bound_adjacent(childgenes, width, height)).intersection(set1.union(set2)))
+                samplesize = min(len(extending), gene_size - len(childgenes))
+                bounds1 = Util.bound_adjacent(list(set1), width, height)
+                set1.union(set(bounds1))
+                bounds2 = Util.bound_adjacent(list(set2), width, height)
+                bounds = set2.union(set(bounds2))
+                print(f'samplesize:{samplesize}') # infinite roof
+                childgenes.extend(random.sample(bounds, samplesize))
+        childgenes.extend(random.sample(adjacent_bound, samplesize))
+
+    else:
+
+        p1diff = list(set1 - set(childgenes))
+        p2diff = list(set2 - set(childgenes))
+        p1adj = set(Util.bound_adjacent(childgenes, width, height)).intersection(set(p1diff))
+        p2adj = set(Util.bound_adjacent(childgenes, width, height)).intersection(set(p2diff))
+        adjs = p1adj.union(p2adj)
+        new_genes = random.sample(adjs, min(gene_size - len(childgenes), len(adjs)))
+        childgenes.extend(new_genes)
+        while len(childgenes) < gene_size:
+            new_adjacent = Util.bound_adjacent(childgenes, width, height)
+            new_genes = random.sample(new_adjacent, min(gene_size - len(childgenes), len(new_adjacent)))
+            childgenes.extend(new_genes)
+    return childgenes, mating_pool[rand1].pop_id, mating_pool[rand2].pop_id
+
+def continue_crossover(childgenes, genes1, genes2, width, height, gene_size, mating_pool, rand1, rand2):
+    set1 = set(genes1)
+    set2 = set(genes2)
+    p1diff = list(set1 - set(childgenes))
+    p2diff = list(set2 - set(childgenes))
+    p1adj = set(Util.bound_adjacent(childgenes, width, height)).intersection(set(p1diff))
+    p2adj = set(Util.bound_adjacent(childgenes, width, height)).intersection(set(p2diff))
+    adjs = p1adj.union(p2adj)
+    new_genes = random.sample(adjs, min(gene_size - len(childgenes), len(adjs)))
+    childgenes.extend(new_genes)
+    while len(childgenes) < gene_size:
+        new_adjacent = Util.bound_adjacent(childgenes, width, height)
+        new_genes = random.sample(new_adjacent, min(gene_size - len(childgenes), len(new_adjacent)))
+        childgenes.extend(new_genes)
+    return childgenes, mating_pool[rand1].pop_id, mating_pool[rand2].pop_id
 
 
 def crossover_random_0816(pops, width, height, gene_size):
@@ -400,7 +699,8 @@ def crossover_overwrap(pops, width, height,gene_size, mut_rate=0.1, generation=0
             child_genes.pop()
 
         child = LandGrid(child_genes, width, height)
-        numcc = child.num_connected_component() # size가 같지만, 두 그릅인 경우
+        # numcc = child.num_connected_component() # size가 같지만, 두 그릅인 경우 #08-17
+        numcc = Util.num_connected_component(child_genes, width, height)
         if(numcc != 1): # size가 같고, 한덩어리일 경우에만 child를 return (crossover)
             print(f'Failed to crossover number of connected component of child: {numcc}')
             child = pops[index2] #todo mixed up with child and child_genes

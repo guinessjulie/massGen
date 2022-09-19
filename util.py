@@ -7,6 +7,8 @@ import matplotlib.pyplot as plt
 import csv
 import random
 from statistics import mean
+import os
+import statutil
 import matplotlib.gridspec as gridspec
 class Pos:
     def __init__(self, x, y):
@@ -42,11 +44,75 @@ class Util:
             print(cell, '=>', *[adj for adj in graph[cell]])
 
     @staticmethod
+    def build_weights(probs, sample, div_sample):
+        weights = []
+        n = len(div_sample)
+        for s in sample:
+            if s in div_sample[0]:
+                weights.append(probs[0])
+            elif s in div_sample[1]:
+                weights.append(probs[1])
+        return weights
+
+    @staticmethod
+    def fits_to_probs(fits):
+        uniques = list(set(fits))
+        uniques_sum = sum(x for x in uniques)
+        norm_uniques = [ x / uniques_sum for x in fits]
+        norm_uniques = Util.normalize_0to1(norm_uniques)
+
+        return norm_uniques
+
+
+    @staticmethod
     def printCC(comps):
         for c in comps:
             print('connected compoonent:', *c)
             for adj in c:
                 print('adj:', adj)
+
+    @staticmethod
+    def connected_component(loc_list, width, height):
+        visited = {}
+        cc = []
+        graph = Util.buildUndirectedGraph(loc_list, width, height)
+        for node in graph:
+            visited[node] = False
+        for nodeId, node in enumerate(graph):
+            if visited[node] == False:
+                temp = []  # dsf algorithm
+                cc.append(Util.dsf_util(visited, graph, node, temp))
+        return cc
+
+    @staticmethod
+    def buildUndirectedGraph(loc_list, width, height):
+        adjGraph = {}
+        visited = set()
+        for idx, curCell in enumerate(loc_list):
+            visited.add(curCell)
+            adjs = Util.adjacent_four_way(curCell, width, height)
+            child = [adj for adj in adjs if adj in loc_list]
+            adjGraph[curCell] = child
+        return adjGraph
+
+    @staticmethod
+    def grouped_by_row(positions):
+        yset = set(map(lambda pos: pos.y, positions))
+        return [[pos for pos in positions if pos.y==y] for y in yset]
+    @staticmethod
+    def grouped_by_col(positions):
+        xset = set(map(lambda pos:pos.x, positions))
+        return[ [pos for pos in positions if pos.x ==x ] for x in xset]
+
+    @staticmethod
+    def available_adjacency(genes, idx, width, height):
+        all_adjs = Util.adjacent_four_way(genes[idx], width, height)
+        return [x for x in all_adjs if x not in genes]
+
+    @staticmethod
+    def occupied_adjacency(icx, genes, width, height):
+        all_adjs = Util.adjacent_four_way(icx,width,height)
+        return [x for x in all_adjs if x in genes]
 
 
 
@@ -102,30 +168,78 @@ class Util:
             i += 1
         return str_result
 
-    def plotGrid(grid):
+    @staticmethod
+    def saveData(generation, new_pops, fit_option, fitnesses, fitness_filename, numfig = 50, targetpath='.\\results\\'):
+        fig_title = 'Generation #' + str(generation)
+        # todo: delete when paper picture is done
+        # random_pop = random.sample(new_pops, 10)
+        # Util.plotGridOnlyRow(random_pop, int(len(random_pop) / 2), fig_title)  # todo:  10 for pops= 100
+
+        # todo: plot 50 picture per page
+
+        random_pop = random.sample(new_pops, numfig) if len(new_pops) > numfig else new_pops
+        # Util.plotGridOnlyRow(random_pop, int(len(random_pop) / 5), fig_title, omit_parents=False)  # todo:  10 for pops= 100
+        Util.plotGridOnlyRow(random_pop, int(len(random_pop) / 5), fig_title, omit_parents=True, targetpath=targetpath, generation=generation)  # todo:  10 for pops= 100
+        # Util.plotGridOnlyRow(new_pops, int(len(new_pops) / 5), fig_title)  # todo:  10 for pops= 100
+        fitname = fit_option
+        mean_fitness = mean(x.get(fit_option) for x in fitnesses)
+        Util.saveFitnessCsv(fitness_filename, fitnesses, generation, mean_fitness, fitname)
+
+    def plotGrid(grid, showTitle=False):
         print('grid',grid)
         # for plot
         mat=[[0]*grid.width for _ in range(grid.height)]
         for cell in grid.poses:
             mat[cell.y][cell.x] = 1
         fig, ax = plt.subplots()
-        plt.axis('off')
+        plt.subplots_adjust(left=0.001, right=0.999, top=0.85, bottom=0)
+        # fig.tight_layout()
+        # plt.axis('off')
+        plt.rcParams["axes.edgecolor"] = "0.15"
+        plt.rcParams["axes.linewidth"] = 1.25
+        plt.gca().axes.get_xaxis().set_visible(False)
+        plt.gca().axes.get_yaxis().set_visible(False)
         ax.set_aspect(1)
-        pltMass = ax.imshow(mat, cmap='GnBu', interpolation='nearest')
+        ax.patch.set_edgecolor('black')
+        ax.patch.set_linewidth('1')
+        if showTitle:
+            half = len(grid.poses) / 2
+            title_rows = len(grid.poses) / half # max 8 개씩 출력
+            if len(grid.poses) > 8:
+                middle_pos = int(len(grid.poses) / title_rows) #2
+                title = str(grid.poses[:middle_pos]) + '\n'
+                title += str(grid.poses[middle_pos:])
+            else:
+                title = str(grid.poses)
+            print(title)
+            plt.title(title, pad=5, fontsize=16)
+        pltMass = ax.imshow(mat, cmap='gray_r', interpolation='nearest')
         plt.savefig('test.png')
         print(plt.axis())
         plt.show()
 
-    def plotGridOnlyRow(pops, plotrows, fit_txt = ''):
+    @staticmethod
+    def createFolderIfNotExists(foldername):
+        if not os.path.exists(foldername):
+            os.makedirs(foldername, mode=0o777, exist_ok=False)
+
+    def plotGridOnlyRow(pops, plotrows, fit_txt = '', omit_parents = False, targetpath= './results/Gen', generation=0):
         plotcols = math.ceil(len(pops) / plotrows)
         fig, axs = plt.subplots(plotcols,plotrows)
+        # fig.set_size_inches(10, 4) #todo : for two row figure
+        # plt.subplots_adjust(hspace=0.01, wspace=0.01)
         plt.subplots_adjust(hspace=0.1, wspace=0.1)
 
 
         i = 0
         for land in pops:
             mat = [[0] * land.width for _ in range(land.height)]
+            if omit_parents:
+                fig_title = f'{str(land.pop_id)}'
+            else:
+                fig_title = f'{str(land.pop_id)}\n{str(land.p1)}' if (land.p1 and land.p2 == -1) else f'{str(land.pop_id)}\n{str(land.p1)},{str(land.p2)}'
 
+            # fig_title = f'{str(land.pop_id)}\n{land.p1},{land.p2}' if not omit_parents else f'{str(land.pop_id)}'
             for cell in land.poses:
                 # mat[cell.y][cell.x] = 1
                 y = land.height - 1 - cell.y  # to reverse y value to transform screen coordinate to plot coordinate
@@ -136,20 +250,25 @@ class Util:
             axs[plotcol, plotrow].set_yticks([])
             # axs[plotcol, plotrow].text(0,20, fit_txt)
             axs[plotcol, plotrow].set_aspect(1.0)
-            axs[plotcol, plotrow].set_title(str(i))
+            axs[plotcol, plotrow].set_title(fig_title, fontsize = 9)
             i += 1
 
-        filename = './results/conditional_'+ datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")[4:]
-        fig.suptitle(fit_txt)
-        plt.tight_layout()
+        # filename = './results0916/pic'+ datetime.datetime.now().strftime('%Y%m%d-%H%M%S')[4:]
+
+        Util.createFolderIfNotExists(foldername=targetpath)
+        # filename = targetpath+'Gen'+str(generation) + '_'+datetime.datetime.now().strftime('%H%M%S')[4:]
+        filename = targetpath+ datetime.datetime.now().strftime('%H%M') + '_Gen'+str(generation)
+        # filename = './results0916/pic'+ datetime.datetime.now().strftime('%Y%m%d-%H%M%S')[4:]
+        fig.suptitle(fit_txt, fontsize=12)
         plt.savefig(filename)
         plt.show()
 
-    def plotGridBatch(pops, numfig, rows):
+    def plotGridBatch(pops, numfig, rows, fig_text = '', omit_parents = False):
         num_sheet = int(len(pops) / numfig)
-        fig_text = 'Initial Population'
+        # fig_text = 'Initial Population'
         for i in range(num_sheet):
-            Util.plotGridOnlyRow(pops[i*numfig:i*numfig+numfig], rows, fig_text+str(i))
+            # Util.plotGridOnlyRow(pops[i*numfig:i*numfig+numfig], rows, fig_text+" " + str(i))
+            Util.plotGridOnlyRow(pops[i*numfig:i*numfig+numfig], rows, fig_text, omit_parents)
 
     def plotGridOnly(pops):
         plotrows = 5
@@ -207,7 +326,7 @@ class Util:
         Util.set_gridplot_text(fig,gs[5,:2], txt_plan)
         Util.set_gridplot_text(fig, gs[5,2:],txt_fitness)
 
-        filename = './results/plot_'+ datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")[4:]
+        filename = './results/gen_'+ datetime.datetime.now().strftime("%Y%m%d%H%M%S%f")[4:]
         plt.savefig(filename)
         plt.show()
 
@@ -224,8 +343,8 @@ class Util:
 
     @staticmethod
     def select_random_position(width, height):
-        init_row = random.randint(0, height - 1)
-        init_col = random.randint(0, width - 1)
+        init_row = random.randint(1, height - 2)
+        init_col = random.randint(1, width - 2)
         genes = [ Pos(init_col, init_row)]
         return genes
 
@@ -257,6 +376,7 @@ class Util:
             if visited[adj] is False:
                 components = Util.dsf_util(visited, graph, adj, components)
         return components
+
 
 
     # 인접셀 집합을 구한다. 대각선 방향 포함

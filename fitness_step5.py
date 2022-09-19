@@ -1,30 +1,29 @@
 from util import Util
-# from landgrid import LandGrid
+from landgrid import LandGrid
+
 from options import Options
 import math
-import constant
 
-# element = self._grid => LandGrid object이다. 이것을 gene으로 바꾸자.
+import constant
 class Fitness:
-    def __init__(self, genes, width, height, numCell, id=0):  # floor:[(x,y),...]
+    def __init__(self, element, width, height, numCell, id=0):  # floor:[(x,y),...]
         config = Options()
         self._width, self._height = width, height,
         self.config_options = lambda ky: config.config_options(ky)
-        self._genes = genes
-        self.adjacency_graph = Util.buildUndirectedGraph(self._genes, width, height)
-        self._attrs, self._fits, self.edges = self.build_attrs(numCell, id)
+        self._grid= element
+        self.adjacency_graph = element.buildUndirectedGraph()
+        self._attrs, self._fits, self.edges = self.build_attrs(element, numCell, id)
         self._id = id
         # Util.display_str_dict(self._fits, 'Fitness') #get rid of fitness values on the console
 
 
-
 #먼저 init을 좀 정리하자.attr fit를 딴데서
-    def build_attrs(self, numCell, id = 0):
+    def build_attrs(self, gridpos, numCell, id = 0):
         attrs = {}
         fits = {}
         config = Options()
-        grid_by_col = sorted(self._genes, key=lambda item:(item.x, item.y))
-        grid_by_row = sorted(self._genes, key=lambda item: (item.y, item.x))
+        grid_by_col = gridpos.sorted_by_col()
+        grid_by_row = gridpos.sorted_by_row()
 
         attrs['number of cells'] = numCell
         max_width = grid_by_col[numCell - 1].x - grid_by_col[0].x + 1
@@ -57,7 +56,7 @@ class Fitness:
 
         # fits['f(AR)'] = aspect_ratio / optimal_aspect_ratio_value
         fits['f(VSymm)'], fits['f(HSymm)'] = self.get_symmetry()
-        fits['f(CC)'] = len(Util.connected_component(self._genes, self._width, self._height))
+        fits['f(CC)'] = len(gridpos.connected_component())
         # fits['daylight hour'] = self.get_daylight_hour(edges, real_vertical_length) # todo edges not set yet
         return attrs, fits, edges
         # Util.printAdjGraph(self.adjacency_graph) #todo: for Debug
@@ -204,7 +203,7 @@ class Fitness:
     #남향 방향으로 얼마나 빈 공간이 있느냐 하는 것
     def south_gap(self, edges):
         cell_length = self.config_options('cell_length')
-        front_space_south = sum([self._height - 1 - cell.y for cell in edges['south']])*cell_length
+        front_space_south =sum([self._grid.height-1-cell.y for cell in edges['south']]) * cell_length
         return front_space_south
 
     def get_daylight_hour(self, edges, real_vertical_length):
@@ -243,25 +242,20 @@ class Fitness:
     # todo: not yet used. get polygon coordinates
     # todo: to get polygon coordinates for num_vertices and etc
     def get_polygon_vertice(self):
-        tupPos = [tuple((p.x, p.y)) for p in self._genes.poses]
+        tupPos = [tuple((p.x, p.y)) for p in self._grid.poses]
         return Util.trace(tupPos)
 
     def bound_box(self):
-        newpos = Util.move_topleft((self._genes.poses))
+        newpos = Util.move_topleft((self._grid.poses))
         #print(newpos) #todo:recover
         print(Util.bounding_box(newpos)) # todo recover
 
-    def get_symmetry_old(self):
+    def get_symmetry(self):
         # return 0,0
-        newpos = Util.move_topleft(self._genes)
+        newpos = Util.move_topleft(self._grid.poses)
         bb = Util.bounding_box(newpos)
         width = bb[1]+1; height = bb[3]+1
-
-        newgrid = [['.'] * width for _ in range(height)]
-        for p in newpos: # todo: you might need to put grid as a class member
-            newgrid[p.y][p.x] = 'X'
-
-        # newgrid = LandGrid(newpos, width, height)
+        newgrid = LandGrid(newpos, width, height)
 
         horz_diff = 0; vertical_diff = 0;
         i = 0; k = height - 1
@@ -270,7 +264,7 @@ class Fitness:
         while(i < width // 2): #floor division operator
             for j in range(width):
                 try:
-                    if(newgrid[i][j] != newgrid[k][j]):
+                    if(newgrid.grid[i][j] != newgrid.grid[k][j]):
                         horz_diff +=1
                 except IndexError:
                     return 0,0
@@ -282,58 +276,14 @@ class Fitness:
             # Checking each cell of a row.
             for j in range(height):
                 try:
-                    if (newgrid[j][i] != newgrid[j][k]):
+                    if (newgrid.grid[j][i] != newgrid.grid[j][k]):
                         vertical_diff += 1
                 except IndexError:
                     return 0, 0
             k -= 1; i += 1
 
-        vertical_symm = 1 - (vertical_diff / len(self._genes))
-        horz_symm = 1 - (horz_diff / len(self._genes))
-
-        return  vertical_symm, horz_symm,
-
-    def get_symmetry(self):
-        # return 0,0
-        newpos = Util.move_topleft(self._genes)
-        bb = Util.bounding_box(newpos)
-        width = bb[1]+1; height = bb[3]+1
-
-        newgrid = [['.'] * width for _ in range(height)]
-        for p in newpos: # todo: you might need to put grid as a class member
-            newgrid[p.y][p.x] = 'X'
-
-        # newgrid = LandGrid(newpos, width, height)
-
-        horz_diff = 0; vertical_diff = 0;
-        x1 = 0; y2 = height - 1
-
-        # Horizontal Symmetry
-        x1 = 0; y1 = 0; y2 = height - 1
-        while (x1 < width):
-            while y1 < (height // 2):
-                try:
-                    if (newgrid[y1][x1] != newgrid[y2][x1]):
-                        horz_diff += 1
-                except IndexError:
-                    return 0, 0
-                y1 += 1; y2 -= 1
-            x1 += 1; y1 = 0;  y2 = height - 1
-
-        # Vertical Symmetry
-        y1 = 0;x1 = 0; x2 = width - 1
-        while (y1 < height):
-            while x1 < (width // 2):
-                try:
-                    if (newgrid[y1][x1] != newgrid[y1][x2]):
-                        vertical_diff += 1
-                except IndexError:
-                    return 0, 0
-                x1 += 1; x2 -= 1
-            x1 = 0; y1 += 1; x2 = width - 1
-
-        vertical_symm = 1 - (vertical_diff / len(self._genes))
-        horz_symm = 1 - (horz_diff / len(self._genes))
+        vertical_symm = 1 - vertical_diff / len(self._grid.poses)
+        horz_symm = 1 - horz_diff / len(self._grid.poses)
 
         return  vertical_symm, horz_symm,
 
@@ -345,7 +295,7 @@ class Fitness:
     def get_aspect_ratio(edges):
         return len(edges['south']) / len(edges['east'])
 
-    def get_south_ratio_ㄴㅁㅍㄷ (self, edges):
+    def get_south_ratio(self, edges):
         cell_length = self.config_options('cell_length')
         south_side_length = len(edges['south']) * cell_length
         land_horiz_length = self._width * cell_length
@@ -353,26 +303,7 @@ class Fitness:
         one_side_setback = cell_length if setback < cell_length else setback
         both_side_setback =  one_side_setback * 2
         max_south_length = land_horiz_length - both_side_setback
-        if south_side_length > max_south_length:
-            print('whats happening')
-
         return south_side_length / max_south_length
-
-    # todo: setback requirement는 setback requirement 대로
-    def get_south_ratio(self, edges):
-        cell_length = self.config_options('cell_length')
-        south_side_length = len(edges['south']) * cell_length
-        land_horiz_length = self._width * cell_length
-        # setback = self.config_options('setback_requirement')
-        # one_side_setback = cell_length if setback < cell_length else setback
-        # both_side_setback =  one_side_setback * 2
-        # max_south_length = land_horiz_length - both_side_setback
-        # if south_side_length > max_south_length:
-        #     print('whats happening')
-        ssr = south_side_length / land_horiz_length
-        if not ssr:
-            print('not ssr')
-        return ssr
 
     # def side_cells(self):
     #
@@ -386,8 +317,8 @@ class Fitness:
     #     return edges, aspect_ratio, south_side_ratio2
 
     def get_edges(self):
-        rows = Util.grouped_by_row(self._genes)
-        cols = Util.grouped_by_col(self._genes)
+        rows = self._grid.grouped_by_row()
+        cols = self._grid.grouped_by_col()
         edges = {}
         edges['east'] = [max(row, key=lambda pos: pos.x) for row in rows]
         edges['west'] = [min(row, key=lambda pos: pos.x) for row in rows]
@@ -398,7 +329,7 @@ class Fitness:
 
     def boundary_length_old(self, numCell):  # 외피 사이즈
         # This is the Fitness Function
-        cc = self._genes.connected_component()
+        cc = self._grid.connected_component()
         # Util.printCC(cc) # todo for DEBUG
 
         insideWall = 0;
