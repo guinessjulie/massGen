@@ -3,7 +3,6 @@ from util import Util
 from options import Options
 import math
 import constant
-from util import Pos
 
 # element = self._grid => LandGrid object이다. 이것을 gene으로 바꾸자.
 class Fitness:
@@ -51,12 +50,10 @@ class Fitness:
         south_side = self.get_south_ratio(edges)
         fits['FSH(Sunlight Hours)'], fits['f(FSH)'] = self.get_daylight_15min(edges) # todo test and finish to get detailed 15min sunlight
         fits['f(SSR)'] = south_side
-        # fits['AR(Aspect Ratio)'] = aspect_ratio
-
-
-        # optimal_aspect_ratio_value = constant.RATIOS[optimal_aspect_ratio]
-        # fits['f(AR)'] = min(aspect_ratio, optimal_aspect_ratio_value) / max(optimal_aspect_ratio_value, aspect_ratio)
-        fits['occupied_ratio'], fits['AR(Aspect Ratio)'], fits['OptimalAR'], fits['f(AR)'] =  self.optimal_aspect_ratio()
+        fits['AR(Aspect Ratio)'] = aspect_ratio
+        optimal_aspect_ratio = self.config_options('optimal_aspect_ratio')[0] # because it returns list
+        optimal_aspect_ratio_value = constant.RATIOS[optimal_aspect_ratio]
+        fits['f(AR)'] = min(aspect_ratio, optimal_aspect_ratio_value) / max(optimal_aspect_ratio_value, aspect_ratio)
 
         # fits['f(AR)'] = aspect_ratio / optimal_aspect_ratio_value
         fits['f(VSymm)'], fits['f(HSymm)'] = self.get_symmetry()
@@ -65,7 +62,7 @@ class Fitness:
         return attrs, fits, edges
         # Util.printAdjGraph(self.adjacency_graph) #todo: for Debug
 
-    # for Column name renaming 
+    # for Column name renaming
     def build_attrs2(self, gridpos, numCell):
         attrs = {}
         fits = {}
@@ -88,14 +85,14 @@ class Fitness:
         fits['f(BCR)'] = attrs['real faratio'] / self.config_options('required_faratio')
         fits['f(PAR)'] = f_par
         edges = self.get_edges()
-        # aspect_ratio = self.get_aspect_ratio(edges)
+        aspect_ratio = self.get_aspect_ratio(edges)
         south_side = self.get_south_ratio(edges)
         fits['FSH(Sunlight Hours)'], fits['f(FSH)'] = self.get_daylight_15min(edges) # todo test and finish to get detailed 15min sunlight
         fits['f(SSR)'] = south_side
-        # fits['AR(Aspect Ratio)'] = aspect_ratio
+        fits['AR(Aspect Ratio)'] = aspect_ratio
         optimal_aspect_ratio = self.config_options('optimal_aspect_ratio')[0] # because it returns list
         optimal_aspect_ratio_value = constant.RATIOS[optimal_aspect_ratio]
-        # fits['f(AR)'] = min(aspect_ratio, optimal_aspect_ratio_value) / max(optimal_aspect_ratio_value, aspect_ratio)
+        fits['f(AR)'] = min(aspect_ratio, optimal_aspect_ratio_value) / max(optimal_aspect_ratio_value, aspect_ratio)
         fits['f(VSymm)'], fits['f(HSymm'] = self.get_symmetry()
         # fits['daylight hour'] = self.get_daylight_hour(edges, real_vertical_length) # todo edges not set yet
         return attrs, fits, edges
@@ -347,27 +344,6 @@ class Fitness:
     @staticmethod
     def get_aspect_ratio(edges):
         return len(edges['south']) / len(edges['east'])
-
-    def optimal_aspect_ratio(self):
-        maxrect = Util.bounding_box(self._genes)
-        # minrect =  Util.minimalAABB(self._genes, self._width, self._height) #  하다 망쳤음
-        minx = maxrect[0];         maxx = maxrect[1];         miny = maxrect[2];         maxy = maxrect[3]
-        maxrect_positions = [Pos(x, y) for x in range(minx, maxx+1) for y in range(miny, maxy+1)]
-        aspect_ratio = min((maxx - minx) + 1 , (maxy - miny) + 1) /  max((maxx - minx) + 1 , (maxy - miny) + 1)
-        as_option  = self.config_options('optimal_aspect_ratio') # because it returns list
-        if as_option[0] == 'specified':
-            opt_as_ratio =float((as_option[1].strip()).split('/')[0]) / float((as_option[1].strip()).split('/')[1])
-        else :
-            opt_as_ratio = constant.RATIOS[as_option[0]]
-        opt_ratio = min(aspect_ratio, opt_as_ratio) / max(opt_as_ratio, aspect_ratio)
-        occupied_ratio =  len(self._genes) / len(maxrect_positions)
-        far = opt_ratio * occupied_ratio
-        return occupied_ratio, aspect_ratio, opt_ratio, far
-
-
-        # fits['f(AR)'] = min(aspect_ratio, optimal_aspect_ratio_value) / max(optimal_aspect_ratio_value, aspect_ratio)
-
-
 
     def get_south_ratio_ㄴㅁㅍㄷ (self, edges):
         cell_length = self.config_options('cell_length')

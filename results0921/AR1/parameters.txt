@@ -2,11 +2,11 @@
 wall_list = south, north
 road_side = south
 adjacent_land = east, west
-optimal_aspect_ratio = specified, 5/7
+optimal_aspect_ratio = golden_ratio
 fitoption= f(AR)
 [Mass]
-width = 12
-height = 8
+width = 8
+height = 5
 required_faratio = 0.5
 cell_length = 2
 max_area = 150
@@ -22,7 +22,7 @@ east_gap= 1
 wall_height=2
 setback_requirement=1
 numfig = 50
-numcell =35
+numcell = 16
 
 
 [GAParams]
@@ -41,6 +41,6 @@ forcednalength = yes
 selection = roulette
 start_position = middle
 mutate_option = rate
-crossover_method = b
-init_method = b
+crossover_method = a
+init_method = a
 

@@ -356,9 +356,9 @@ class Util:
                 dict_writer.writeheader()
                 dict_writer.writerows(fits)
 
-        with open(filename, 'a', newline='') as fp:
-            writer = csv.writer(fp)
-            writer.writerow([fitname, fit_value])
+        # with open(filename, 'a', newline='') as fp:
+        #     writer = csv.writer(fp)
+        #     writer.writerow([fitname, fit_value])
 
     @staticmethod
     def saveStat(filename, stats):
@@ -409,7 +409,7 @@ class Util:
 
 
     @staticmethod
-    def all_cell(self, width, height):
+    def all_cell(width, height):
         return [ i for i in list(Pos(x, y) for x in range(width) for y in range(height))]
 
     @staticmethod
@@ -513,6 +513,60 @@ class Util:
                 return outline[:-1]
             pt = pt_next #막 추가한 네이버를 pt로 대상으로 하고
             dir1 = dir_next #다음번 방향을 dir1 로 해서
+
+
+    @staticmethod
+    def display_genes(genes, width, height):
+        grid = [['.'] * width for _ in range(height)]
+        print(genes)
+        for p in genes:
+            grid[p.y][p.x] = 'X'
+        print('\n'.join(' '.join(row) for row in grid))
+
+    @staticmethod # AspectRatio하다가 망쳤다
+    def minimalAABB(position, _width, _height):
+        maxrect = Util.bounding_box(position)
+        minx = maxrect[0];         maxx = maxrect[1];         miny = maxrect[2];         maxy = maxrect[3]
+        maxrect_positions = [Pos(x, y) for x in range(minx, maxx+1) for y in range(miny, maxy+1)]
+
+
+        asr = len(position) / len(maxrect_positions)
+        bb_width = maxx - minx + 1
+        bb_height = maxy - miny + 1
+
+        fullwidth_rows = []
+        minrect_width = 0
+        for i in range(bb_height):
+            row = [pos for pos in position if pos.y == miny + i]
+            if len(row) == bb_width:
+                fullwidth_rows.extend(row)
+                minrect_width += 1
+
+        fullheight_cols = []
+        minrect_height = 0
+        for i in range(bb_width):
+            col = [pos for pos in position if pos.x == minx + i]
+            if len(col) == bb_height:
+                fullheight_cols.extend(col)
+                minrect_height += 1
+
+
+
+
+
+        # minx = min(positions, key=lambda pos:pos.x)
+        # maxx = max(positions, key= lambda pos: pos.x)
+        # miny = min(positions, key=lambda pos:pos.y)
+        # maxy = max(positions, key= lambda pos: pos.y)
+        # corners =  [Pos(minx.x, miny.y), Pos(maxx.x, miny.y), Pos(maxx.x, maxx.y), Pos(minx.x, maxy.y)]
+        # return [min(positions, key=lambda pos:pos.x).x,
+        #         max(positions, key=lambda pos:pos.x).x,
+        #         min(positions, key=lambda pos:pos.y).y,
+        #         max(positions, key=lambda pos:pos.y).y,
+        #         ]
+        # return [min(corners, key=lambda pos:pos.x).x, max(corners, key=lambda pos:pos.x).x, min(corners)] #가로방향의 최소값을 가진 셀
+
+        return None
 
 class Stat:
     @staticmethod
